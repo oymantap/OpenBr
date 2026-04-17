@@ -18,10 +18,9 @@ jobs:
       with:
         java-version: '17'
         distribution: 'temurin'
-    # Ganti bagian Setup Gradle Wrapper dengan ini
+
     - name: Setup Gradle Wrapper
       run: |
-        # Kita pakai perintah curl saja biar pasti dapet versi 8.2, jangan pakai perintah 'gradle' bawaan runner
         curl -LO https://services.gradle.org/distributions/gradle-8.2-bin.zip
         unzip -q gradle-8.2-bin.zip
         ./gradle-8.2/bin/gradle wrapper --gradle-version 8.2
@@ -29,22 +28,31 @@ jobs:
 
     - name: Build Release APK
       run: ./gradlew assembleRelease
-    - name: Sign APK
-      uses: r0adkll/sign-android-release@v1
-      id: sign_app
-      with:
-        releaseDirectory: app/build/outputs/apk/release
-        signingKeyBase64: ${{ secrets.SIGNING_KEY }}
-        alias: ${{ secrets.ALIAS }}
-        keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
-        keyPassword: ${{ secrets.KEY_PASSWORD }}
-        # TAMBAHKAN BARIS INI BIAR GAK NYARI VERSI LAMA
-        buildToolsVersion: "34.0.0" 
 
-    # Upload hasil akhir yang sudah resmi
+    - name: Sign APK Manual
+      run: |
+        # 1. Cari alat tanda tangan terbaru di server
+        ZIPALIGN=$(find $ANDROID_HOME/build-tools -name zipalign | sort -V | tail -1)
+        APKSIGNER=$(find $ANDROID_HOME/build-tools -name apksigner | sort -V | tail -1)
+        
+        # 2. Cari file APK hasil rakitan
+        APK_FILE=$(find app/build/outputs/apk/release -name "*.apk" | head -1)
+        
+        # 3. Optimasi APK (Zipalign)
+        $ZIPALIGN -v 4 "$APK_FILE" OpenBr_signed_temp.apk
+        
+        # 4. Tanda tangan pake Secret kamu
+        echo "${{ secrets.SIGNING_KEY }}" | base64 -d > release.jks
+        $APKSIGNER sign --ks release.jks \
+          --ks-key-alias "${{ secrets.ALIAS }}" \
+          --ks-pass pass:"${{ secrets.KEYSTORE_PASSWORD }}" \
+          --key-pass pass:"${{ secrets.KEY_PASSWORD }}" \
+          --out OpenBr_Official.apk \
+          OpenBr_signed_temp.apk
+
     - name: Upload Official APK
       uses: actions/upload-artifact@v4
       with:
         name: OpenBr_v17.17
-        path: ${{ steps.sign_app.outputs.signedReleaseFile }}
+        path: OpenBr_Official.apk
         

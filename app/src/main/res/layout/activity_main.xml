@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FFFFFF">
+    android:background="#F5F5F5">
 
     <WebView
         android:id="@+id/webview"
@@ -17,19 +17,21 @@
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
         android:layout_margin="16dp"
-        app:cardCornerRadius="25dp"
-        app:cardElevation="8dp">
+        app:cardCornerRadius="28dp"
+        app:cardElevation="10dp">
 
         <EditText
             android:id="@+id/url_input"
             android:layout_width="match_parent"
-            android:layout_height="50dp"
+            android:layout_height="56dp"
             android:background="@android:color/transparent"
             android:hint="Cari atau ketik URL..."
-            android:paddingHorizontal="20dp"
+            android:paddingHorizontal="24dp"
             android:imeOptions="actionGo"
             android:inputType="textUri"
-            android:singleLine="true" />
+            android:singleLine="true"
+            android:textColor="#212121"
+            android:textSize="14sp" />
     </androidx.cardview.widget.CardView>
 </RelativeLayout>
 

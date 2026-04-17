@@ -1,4 +1,4 @@
-p<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
@@ -11,8 +11,7 @@ p<?xml version="1.0" encoding="utf-8"?>
         android:layout_height="?attr/actionBarSize"
         android:background="#FFFFFF"
         android:elevation="4dp"
-        app:title="Open Br"
-        app:titleMarginStart="16dp" />
+        app:title="Open Br" />
 
     <WebView
         android:id="@+id/webview"
@@ -30,15 +29,32 @@ p<?xml version="1.0" encoding="utf-8"?>
         app:cardCornerRadius="25dp"
         app:cardElevation="8dp">
 
-        <EditText
-            android:id="@+id/url_input"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="50dp"
-            android:background="@android:color/transparent"
-            android:hint="Cari atau ketik URL..."
-            android:paddingHorizontal="20dp"
-            android:imeOptions="actionGo"
-            android:inputType="textUri"
-            android:singleLine="true" />
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="15dp">
+
+            <EditText
+                android:id="@+id/url_input"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="@android:color/transparent"
+                android:hint="Cari atau ketik URL..."
+                android:imeOptions="actionGo"
+                android:inputType="textUri"
+                android:singleLine="true"
+                android:selectAllOnFocus="true" /> <ImageView
+                android:id="@+id/btn_clear"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:padding="5dp"
+                android:src="@android:drawable/ic_menu_close_clear_cancel"
+                android:contentDescription="Clear"
+                android:alpha="0.5" />
+        </LinearLayout>
     </androidx.cardview.widget.CardView>
 </RelativeLayout>
+

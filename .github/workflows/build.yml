@@ -29,8 +29,6 @@ jobs:
 
     - name: Build Release APK
       run: ./gradlew assembleRelease
-
-    # Proses Tanda Tangan (Pakai rahasia yang kamu simpan tadi)
     - name: Sign APK
       uses: r0adkll/sign-android-release@v1
       id: sign_app
@@ -40,6 +38,8 @@ jobs:
         alias: ${{ secrets.ALIAS }}
         keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
         keyPassword: ${{ secrets.KEY_PASSWORD }}
+        # TAMBAHKAN BARIS INI BIAR GAK NYARI VERSI LAMA
+        buildToolsVersion: "34.0.0" 
 
     # Upload hasil akhir yang sudah resmi
     - name: Upload Official APK

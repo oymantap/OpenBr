@@ -1,14 +1,24 @@
-<?xml version="1.0" encoding="utf-8"?>
+p<?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F5F5F5">
+    android:background="#FFFFFF">
+
+    <androidx.appcompat.widget.Toolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="#FFFFFF"
+        android:elevation="4dp"
+        app:title="Open Br"
+        app:titleMarginStart="16dp" />
 
     <WebView
         android:id="@+id/webview"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:layout_below="@id/toolbar"
         android:layout_above="@+id/address_card" />
 
     <androidx.cardview.widget.CardView
@@ -17,21 +27,18 @@
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
         android:layout_margin="16dp"
-        app:cardCornerRadius="28dp"
-        app:cardElevation="10dp">
+        app:cardCornerRadius="25dp"
+        app:cardElevation="8dp">
 
         <EditText
             android:id="@+id/url_input"
             android:layout_width="match_parent"
-            android:layout_height="56dp"
+            android:layout_height="50dp"
             android:background="@android:color/transparent"
             android:hint="Cari atau ketik URL..."
-            android:paddingHorizontal="24dp"
+            android:paddingHorizontal="20dp"
             android:imeOptions="actionGo"
             android:inputType="textUri"
-            android:singleLine="true"
-            android:textColor="#212121"
-            android:textSize="14sp" />
+            android:singleLine="true" />
     </androidx.cardview.widget.CardView>
 </RelativeLayout>
-

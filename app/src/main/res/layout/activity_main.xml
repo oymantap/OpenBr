@@ -1,119 +1,98 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.coordinatorlayout.widget.CoordinatorLayout 
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FAFAFA">
+    android:background="#FFFFFF">
 
-    <LinearLayout
-        android:id="@+id/header_bar"
+    <com.google.android.material.appbar.AppBarLayout
+        android:id="@+id/app_bar"
         android:layout_width="match_parent"
-        android:layout_height="60dp"
+        android:layout_height="wrap_content"
         android:background="#FFFFFF"
-        android:elevation="2dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingHorizontal="12dp">
+        app:elevation="0dp">
 
-        <ImageButton
-            android:id="@+id/btn_back"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@android:drawable/ic_menu_revert"
-            app:tint="#333333" />
+        <androidx.appcompat.widget.Toolbar
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            app:layout_scrollFlags="scroll|enterAlways">
 
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_marginHorizontal="8dp"
-            android:orientation="vertical">
-            
-            <TextView
-                android:id="@+id/site_title"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Memuat..."
-                android:textColor="#222222"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:singleLine="true" />
-                
-            <TextView
-                android:id="@+id/site_url_display"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="google.com"
-                android:textColor="#777777"
-                android:textSize="11sp"
-                android:singleLine="true" />
-        </LinearLayout>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginEnd="16dp"
+                android:background="@drawable/bg_search_bar"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingHorizontal="12dp">
 
-        <ImageButton
-            android:id="@+id/btn_tabs"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@android:drawable/ic_menu_sort_by_size"
-            app:tint="#333333" />
+                <ImageView
+                    android:id="@+id/btn_home"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@android:drawable/ic_menu_today"
+                    app:tint="#5F6368" />
 
-        <ImageButton
-            android:id="@+id/btn_settings"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@android:drawable/ic_menu_more"
-            app:tint="#333333" />
-    </LinearLayout>
+                <EditText
+                    android:id="@+id/url_input"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:layout_marginHorizontal="8dp"
+                    android:background="@android:color/transparent"
+                    android:hint="Cari atau ketik URL..."
+                    android:imeOptions="actionGo"
+                    android:inputType="textUri"
+                    android:singleLine="true"
+                    android:textSize="14sp"
+                    android:selectAllOnFocus="true"/>
+
+                <FrameLayout
+                    android:id="@+id/btn_tabs"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_marginEnd="8dp"
+                    android:background="@drawable/bg_search_bar"
+                    android:backgroundTint="#5F6368">
+                    <TextView
+                        android:id="@+id/tab_count"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:gravity="center"
+                        android:text="1"
+                        android:textColor="#FFFFFF"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+                </FrameLayout>
+
+                <ImageButton
+                    android:id="@+id/btn_more"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@android:drawable/ic_menu_more"
+                    app:tint="#5F6368" />
+            </LinearLayout>
+        </androidx.appcompat.widget.Toolbar>
+    </com.google.android.material.appbar.AppBarLayout>
 
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
         android:id="@+id/swipe_refresh"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_above="@+id/address_card"
-        android:layout_below="@id/header_bar">
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
-        <WebView
-            android:id="@+id/webview"
+        <FrameLayout
+            android:id="@+id/web_container"
             android:layout_width="match_parent"
-            android:layout_height="match_parent" />
+            android:layout_height="match_parent">
+            <WebView
+                android:id="@+id/webview"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+        </FrameLayout>
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
-    <androidx.cardview.widget.CardView
-        android:id="@+id/address_card"
-        android:layout_width="match_parent"
-        android:layout_height="54dp"
-        android:layout_alignParentBottom="true"
-        android:layout_margin="12dp"
-        app:cardCornerRadius="27dp"
-        app:cardElevation="6dp">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:gravity="center_vertical"
-            android:paddingHorizontal="16dp">
-
-            <EditText
-                android:id="@+id/url_input"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:background="@android:color/transparent"
-                android:hint="Cari atau ketik URL..."
-                android:imeOptions="actionGo"
-                android:inputType="textUri"
-                android:singleLine="true"
-                android:textSize="14sp" />
-
-            <ImageView
-                android:id="@+id/btn_clear"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:src="@android:drawable/ic_menu_close_clear_cancel"
-                android:alpha="0.4" />
-        </LinearLayout>
-    </androidx.cardview.widget.CardView>
-</RelativeLayout>
-                
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
+                        

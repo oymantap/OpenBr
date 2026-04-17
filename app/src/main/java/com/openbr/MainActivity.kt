@@ -2,19 +2,14 @@ package com.openbr
 
 import android.Manifest
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.view.*
-import android.view.animation.AlphaAnimation
+import android.view.inputmethod.InputMethodManager
 import android.webkit.*
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-import androidx.webkit.WebSettingsCompat
-import androidx.webkit.WebViewFeature
 
 class MainActivity : AppCompatActivity() {
 
@@ -22,72 +17,89 @@ class MainActivity : AppCompatActivity() {
     private lateinit var searchLayer: View
     private lateinit var urlDisplayFake: TextView
     private lateinit var urlInputReal: EditText
-    private val historyList = mutableListOf<String>()
+    private lateinit var progressBar: ProgressBar
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.setFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED, WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED)
         setContentView(R.layout.activity_main)
 
-        // Izin Otomatis
-        checkPermissions()
-
+        // Binding UI
         webView = findViewById(R.id.webview)
         searchLayer = findViewById(R.id.search_focus_layer)
         urlDisplayFake = findViewById(R.id.url_display_fake)
         urlInputReal = findViewById(R.id.url_input_real)
-        val progressBar = findViewById<ProgressBar>(R.id.progress_bar)
+        progressBar = findViewById(R.id.progress_bar)
         val swipeRefresh = findViewById<SwipeRefreshLayout>(R.id.swipe_refresh)
+        val btnHome = findViewById<ImageView>(R.id.btn_home)
+        val btnClear = findViewById<ImageButton>(R.id.btn_clear_text)
+        val btnBackSearch = findViewById<ImageButton>(R.id.btn_back_search)
         val btnMore = findViewById<ImageButton>(R.id.btn_more)
 
-        // --- WEBVIEW ENGINE ---
+        // --- ENGINE SETTINGS (Fix Loading) ---
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
+            loadWithOverviewMode = true
+            useWideViewPort = true
             databaseEnabled = true
-            userAgentString = "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Mobile Safari/537.36"
+            javaScriptCanOpenWindowsAutomatically = true
             mediaPlaybackRequiresUserGesture = false
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-            
-            // DARK MODE SUPPORT
-            if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
-                WebSettingsCompat.setForceDark(this, WebSettingsCompat.FORCE_DARK_AUTO)
+            userAgentString = "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Mobile Safari/537.36"
+        }
+
+        webView.webViewClient = object : WebViewClient() {
+            override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                progressBar.visibility = View.VISIBLE
+            }
+            override fun onPageFinished(view: WebView?, url: String?) {
+                progressBar.visibility = View.GONE
+                swipeRefresh.isRefreshing = false
+                urlDisplayFake.text = url
+            }
+            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                return false // Biar tetep buka di dalam aplikasi
             }
         }
 
         webView.webChromeClient = object : WebChromeClient() {
             override fun onProgressChanged(view: WebView?, newProgress: Int) {
                 progressBar.progress = newProgress
-                progressBar.visibility = if (newProgress < 100) View.VISIBLE else View.GONE
             }
-            // API UNTUK KAMERA & MIC
             override fun onPermissionRequest(request: PermissionRequest) {
                 request.grant(request.resources)
             }
         }
 
-        webView.webViewClient = object : WebViewClient() {
-            override fun onPageFinished(view: WebView?, url: String?) {
-                swipeRefresh.isRefreshing = false
-                urlDisplayFake.text = url
-            }
+        // --- LOGIC TOMBOL ---
+
+        // Tombol Home (Kembali ke Google atau awal)
+        btnHome.setOnClickListener {
+            webView.loadUrl("https://www.google.com")
         }
 
-        // --- DOWNLOAD & SHARE ---
-        webView.setDownloadListener { url, _, _, _, _ ->
-            val i = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-            startActivity(i)
-        }
-
-        // --- SEARCH FOCUS DENGAN ANIMASI ---
+        // Buka Search Focus
         findViewById<View>(R.id.search_container_trigger).setOnClickListener {
-            showSearchLayer()
+            searchLayer.visibility = View.VISIBLE
+            urlInputReal.setText(webView.url)
+            urlInputReal.requestFocus()
+            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.showSoftInput(urlInputReal, InputMethodManager.SHOW_IMPLICIT)
         }
 
-        findViewById<ImageButton>(R.id.btn_back_search).setOnClickListener {
-            hideSearchLayer()
+        // Tombol X (Hapus Teks) - FIX
+        btnClear.setOnClickListener {
+            urlInputReal.text.clear()
         }
 
+        // Tombol Back di Search - FIX
+        btnBackSearch.setOnClickListener {
+            searchLayer.visibility = View.GONE
+            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.hideSoftInputFromWindow(urlInputReal.windowToken, 0)
+        }
+
+        // Input URL / Search
         urlInputReal.setOnEditorActionListener { v, _, _ ->
             val query = v.text.toString().trim()
             if (query.isNotEmpty()) {
@@ -95,61 +107,52 @@ class MainActivity : AppCompatActivity() {
                     if (query.startsWith("http")) query else "https://$query"
                 } else "https://www.google.com/search?q=$query"
                 webView.loadUrl(url)
-                hideSearchLayer()
+                searchLayer.visibility = View.GONE
+                val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                imm.hideSoftInputFromWindow(urlInputReal.windowToken, 0)
             }
             true
         }
 
-        // --- MENU TITIK TIGA ---
+        // Menu Titik Tiga
         btnMore.setOnClickListener { view ->
-            val popup = PopupMenu(this, view, Gravity.END)
-            popup.menu.add("Bagikan Halaman")
+            val popup = PopupMenu(this, view)
+            popup.menu.add("Bagikan")
             popup.menu.add("Refresh")
-            popup.menu.add("Unduhan")
             popup.setOnMenuItemClickListener {
-                when(it.title) {
-                    "Bagikan Halaman" -> {
-                        val s = Intent(Intent.ACTION_SEND).apply {
-                            type = "text/plain"
-                            putExtra(Intent.EXTRA_TEXT, webView.url)
-                        }
-                        startActivity(Intent.createChooser(s, "Share"))
+                if (it.title == "Bagikan") {
+                    val i = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT, webView.url)
                     }
-                    "Refresh" -> webView.reload()
-                    "Unduhan" -> Toast.makeText(this, "Cek folder Download HP", Toast.LENGTH_SHORT).show()
-                }
+                    startActivity(Intent.createChooser(i, "Share"))
+                } else { webView.reload() }
                 true
             }
             popup.show()
         }
 
-        webView.loadUrl("https://www.google.com")
-    }
-
-    private fun showSearchLayer() {
-        searchLayer.visibility = View.VISIBLE
-        val anim = AlphaAnimation(0.0f, 1.0f).apply { duration = 300 }
-        searchLayer.startAnimation(anim)
-        urlInputReal.requestFocus()
-    }
-
-    private fun hideSearchLayer() {
-        val anim = AlphaAnimation(1.0f, 0.0f).apply { duration = 200 }
-        searchLayer.startAnimation(anim)
-        searchLayer.visibility = View.GONE
-    }
-
-    private fun checkPermissions() {
-        val list = arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, list, 1)
+        // Download
+        webView.setDownloadListener { url, _, _, _, _ ->
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
         }
+
+        swipeRefresh.setOnRefreshListener { webView.reload() }
+
+        // Load awal
+        webView.loadUrl("https://www.google.com")
+        
+        // Minta Izin Kamera/Mic
+        ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO), 1)
     }
 
     override fun onBackPressed() {
-        if (searchLayer.visibility == View.VISIBLE) hideSearchLayer()
-        else if (webView.canGoBack()) webView.goBack()
-        else super.onBackPressed()
+        if (searchLayer.visibility == View.VISIBLE) {
+            searchLayer.visibility = View.GONE
+        } else if (webView.canGoBack()) {
+            webView.goBack()
+        } else {
+            super.onBackPressed()
+        }
     }
 }
-

@@ -89,7 +89,8 @@ class MainActivity : AppCompatActivity() {
 
         // 6. Menu Popup Titik Tiga
         btnMore.setOnClickListener { view ->
-            val popup = PopupMenu(this, view)
+            // Ganti baris PopupMenu yang lama dengan ini:
+            val popup = PopupMenu(this, view, Gravity.END, 0, R.style.CustomPopupStyle)
             popup.menu.add("Refresh")
             popup.menu.add("DNS Bawaan")
             popup.menu.add("Pengaturan")

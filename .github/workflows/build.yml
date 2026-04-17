@@ -18,14 +18,17 @@ jobs:
       with:
         java-version: '17'
         distribution: 'temurin'
-        cache: gradle
 
-    - name: Grant Execute Permission
-      run: chmod +x gradlew
+    # Langkah Sakti: Bikin mesin Gradle otomatis biar gak error Jarfile
+    - name: Setup Gradle Wrapper
+      run: |
+        gradle wrapper --gradle-version 8.2
+        chmod +x gradlew
 
     - name: Build Release APK
       run: ./gradlew assembleRelease
 
+    # Proses Tanda Tangan (Pakai rahasia yang kamu simpan tadi)
     - name: Sign APK
       uses: r0adkll/sign-android-release@v1
       id: sign_app
@@ -36,6 +39,7 @@ jobs:
         keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
         keyPassword: ${{ secrets.KEY_PASSWORD }}
 
+    # Upload hasil akhir yang sudah resmi
     - name: Upload Official APK
       uses: actions/upload-artifact@v4
       with:

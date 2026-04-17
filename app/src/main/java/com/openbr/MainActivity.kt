@@ -1,45 +1,75 @@
 package com.openbr
 
 import android.os.Bundle
+import android.view.*
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+import com.google.android.material.appbar.AppBarLayout
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
+    private lateinit var appBar: AppBarLayout
     private lateinit var swipeRefresh: SwipeRefreshLayout
-    private lateinit var siteTitle: TextView
-    private lateinit var siteUrlDisplay: TextView
+    private var isUiHidden = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         webView = findViewById(R.id.webview)
+        appBar = findViewById(R.id.app_bar)
         swipeRefresh = findViewById(R.id.swipe_refresh)
-        siteTitle = findViewById(R.id.site_title)
-        siteUrlDisplay = findViewById(R.id.site_url_display)
         val urlInput = findViewById<EditText>(R.id.url_input)
+        val btnMore = findViewById<ImageButton>(R.id.btn_more)
+        val webContainer = findViewById<FrameLayout>(R.id.web_container)
 
-        // Fitur Tarik Layar buat Reload
-        swipeRefresh.setOnRefreshListener {
-            webView.reload()
+        // --- DOUBLE TAP TO HIDE LOGIC ---
+        val gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onDoubleTap(e: MotionEvent): Boolean {
+                isUiHidden = !isUiHidden
+                appBar.visibility = if (isUiHidden) View.GONE else View.VISIBLE
+                return true
+            }
+        })
+
+        // Biar WebView tetep bisa disentuh tapi gesture kedeteksi
+        webContainer.setOnTouchListener { _, event ->
+            gestureDetector.onTouchEvent(event)
+            false 
         }
 
-        setupWebView(urlInput)
-
-        // Tombol Back di Header
-        findViewById<ImageButton>(R.id.btn_back).setOnClickListener {
-            if (webView.canGoBack()) webView.goBack()
+        // --- MENU POPUP ---
+        btnMore.setOnClickListener { view ->
+            val popup = PopupMenu(this, view)
+            popup.menu.add("Refresh")
+            popup.menu.add("DNS Bawaan")
+            popup.menu.add("Pengaturan")
+            popup.setOnMenuItemClickListener { item ->
+                when (item.title) {
+                    "Refresh" -> webView.reload()
+                    "DNS Bawaan" -> Toast.makeText(this, "DNS aktif!", Toast.LENGTH_SHORT).show()
+                }
+                true
+            }
+            popup.show()
         }
 
-        // Tombol Silang (X)
-        findViewById<ImageView>(R.id.btn_clear).setOnClickListener {
-            urlInput.text.clear()
+        // --- WEBVIEW SETUP ---
+        webView.settings.javaScriptEnabled = true
+        webView.settings.domStorageEnabled = true
+        webView.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView?, url: String?) {
+                swipeRefresh.isRefreshing = false
+                urlInput.setText(url)
+            }
         }
+
+        swipeRefresh.setOnRefreshListener { webView.reload() }
+        findViewById<ImageView>(R.id.btn_home).setOnClickListener { webView.loadUrl("https://www.google.com") }
 
         urlInput.setOnEditorActionListener { v, _, _ ->
             val input = v.text.toString().trim()
@@ -52,21 +82,7 @@ class MainActivity : AppCompatActivity() {
             urlInput.clearFocus()
             true
         }
-    }
 
-    private fun setupWebView(urlInput: EditText) {
-        webView.settings.javaScriptEnabled = true
-        webView.settings.domStorageEnabled = true
-        
-        webView.webViewClient = object : WebViewClient() {
-            override fun onPageFinished(view: WebView?, url: String?) {
-                super.onPageFinished(view, url)
-                swipeRefresh.isRefreshing = false // Berhenti muter pas kelar reload
-                siteTitle.text = view?.title
-                siteUrlDisplay.text = url
-                urlInput.setText(url)
-            }
-        }
         webView.loadUrl("https://www.google.com")
     }
 
@@ -74,3 +90,4 @@ class MainActivity : AppCompatActivity() {
         if (webView.canGoBack()) webView.goBack() else super.onBackPressed()
     }
 }
+

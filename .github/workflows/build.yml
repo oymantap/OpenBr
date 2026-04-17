@@ -18,11 +18,13 @@ jobs:
       with:
         java-version: '17'
         distribution: 'temurin'
-
-    # Langkah Sakti: Bikin mesin Gradle otomatis biar gak error Jarfile
+    # Ganti bagian Setup Gradle Wrapper dengan ini
     - name: Setup Gradle Wrapper
       run: |
-        gradle wrapper --gradle-version 8.2
+        # Kita pakai perintah curl saja biar pasti dapet versi 8.2, jangan pakai perintah 'gradle' bawaan runner
+        curl -LO https://services.gradle.org/distributions/gradle-8.2-bin.zip
+        unzip -q gradle-8.2-bin.zip
+        ./gradle-8.2/bin/gradle wrapper --gradle-version 8.2
         chmod +x gradlew
 
     - name: Build Release APK

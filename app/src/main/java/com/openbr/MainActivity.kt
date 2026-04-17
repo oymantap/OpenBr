@@ -1,55 +1,46 @@
 package com.openbr
 
-import android.graphics.Bitmap
 import android.os.Bundle
-import android.view.View
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
+    private lateinit var swipeRefresh: SwipeRefreshLayout
     private lateinit var siteTitle: TextView
-    private lateinit var faviconImg: ImageView
+    private lateinit var siteUrlDisplay: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         webView = findViewById(R.id.webview)
+        swipeRefresh = findViewById(R.id.swipe_refresh)
         siteTitle = findViewById(R.id.site_title)
-        faviconImg = findViewById(R.id.favicon)
+        siteUrlDisplay = findViewById(R.id.site_url_display)
         val urlInput = findViewById<EditText>(R.id.url_input)
 
-        // Setup Buttons dari Sketsa Rycl
-        findViewById<ImageView>(R.id.btn_back).setOnClickListener { 
-            if (webView.canGoBack()) webView.goBack() 
-        }
-        findViewById<ImageView>(R.id.btn_clear).setOnClickListener { urlInput.text.clear() }
-        
-        // Setup WebView
-        webView.settings.javaScriptEnabled = true
-        webView.settings.domStorageEnabled = true
-        
-        webView.webViewClient = object : WebViewClient() {
-            override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
-                siteTitle.text = "Loading..."
-            }
-            
-            override fun onPageFinished(view: WebView?, url: String?) {
-                siteTitle.text = view?.title
-                urlInput.setText(url)
-                // Coba ambil favicon (butuh WebChromeClient buat hasil lebih akurat, tapi ini basic-nya)
-                val icon = view?.favicon
-                if (icon != null) faviconImg.setImageBitmap(icon)
-            }
+        // Fitur Tarik Layar buat Reload
+        swipeRefresh.setOnRefreshListener {
+            webView.reload()
         }
 
-        webView.loadUrl("https://www.google.com")
-        
-        // Logika Enter URL (sama kayak sebelumnya)
+        setupWebView(urlInput)
+
+        // Tombol Back di Header
+        findViewById<ImageButton>(R.id.btn_back).setOnClickListener {
+            if (webView.canGoBack()) webView.goBack()
+        }
+
+        // Tombol Silang (X)
+        findViewById<ImageView>(R.id.btn_clear).setOnClickListener {
+            urlInput.text.clear()
+        }
+
         urlInput.setOnEditorActionListener { v, _, _ ->
             val input = v.text.toString().trim()
             if (input.isNotEmpty()) {
@@ -62,5 +53,24 @@ class MainActivity : AppCompatActivity() {
             true
         }
     }
-}
 
+    private fun setupWebView(urlInput: EditText) {
+        webView.settings.javaScriptEnabled = true
+        webView.settings.domStorageEnabled = true
+        
+        webView.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                swipeRefresh.isRefreshing = false // Berhenti muter pas kelar reload
+                siteTitle.text = view?.title
+                siteUrlDisplay.text = url
+                urlInput.setText(url)
+            }
+        }
+        webView.loadUrl("https://www.google.com")
+    }
+
+    override fun onBackPressed() {
+        if (webView.canGoBack()) webView.goBack() else super.onBackPressed()
+    }
+}

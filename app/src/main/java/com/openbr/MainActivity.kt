@@ -14,93 +14,106 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
     private lateinit var searchLayer: View
-    private lateinit var downloadLayer: View
-    private val searchHistory = mutableListOf<String>()
+    private lateinit var urlDisplayFake: TextView
+    private lateinit var urlInputReal: EditText
+    private val historyList = mutableListOf<String>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.setFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED, WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED)
         setContentView(R.layout.activity_main)
 
-        // Inisialisasi View baru
-        searchLayer = findViewById(R.id.search_focus_layer)
-        downloadLayer = findViewById(R.id.download_layer)
-        val urlInput = findViewById<EditText>(R.id.url_input)
-        val searchFocusInput = findViewById<EditText>(R.id.search_input_focus)
-        val btnClear = findViewById<ImageButton>(R.id.btn_clear_search)
-        val btnBackSearch = findViewById<ImageButton>(R.id.btn_back_search)
-        val listHistory = findViewById<ListView>(R.id.list_history)
-
+        // Binding
         webView = findViewById(R.id.webview)
-        
-        // --- 1. MEDIA SESSION & NOTIF PANEL ---
-        // Setting agar media terdeteksi sistem
-        webView.settings.mediaPlaybackRequiresUserGesture = false
+        searchLayer = findViewById(R.id.search_focus_layer)
+        urlDisplayFake = findViewById(R.id.url_display_fake)
+        urlInputReal = findViewById(R.id.url_input_real)
+        val progressBar = findViewById<ProgressBar>(R.id.progress_bar)
+        val swipeRefresh = findViewById<SwipeRefreshLayout>(R.id.swipe_refresh)
+        val btnMore = findViewById<ImageButton>(R.id.btn_more)
 
-        // --- 2. DOWNLOAD MANAGER ---
-        webView.setDownloadListener { url, _, _, _, _ ->
-            val i = Intent(Intent.ACTION_VIEW)
-            i.data = Uri.parse(url)
-            startActivity(i)
-            Toast.makeText(this, "Mendownload...", Toast.LENGTH_SHORT).show()
+        // --- WEBVIEW SETTINGS ---
+        webView.settings.apply {
+            javaScriptEnabled = true
+            domStorageEnabled = true
+            userAgentString = "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Mobile Safari/537.36"
+            mediaPlaybackRequiresUserGesture = false // Biar notif panel peka
+            mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
         }
 
-        // --- 3. SEARCH FOCUS MODE ---
-        urlInput.setOnFocusChangeListener { _, hasFocus ->
-            if (hasFocus) {
-                searchLayer.visibility = View.VISIBLE
-                searchFocusInput.requestFocus()
-                // Tampilkan history
-                val adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, searchHistory)
-                listHistory.adapter = adapter
+        webView.webChromeClient = object : WebChromeClient() {
+            override fun onProgressChanged(view: WebView?, newProgress: Int) {
+                progressBar.progress = newProgress
+                progressBar.visibility = if (newProgress < 100) View.VISIBLE else View.GONE
             }
         }
 
-        btnBackSearch.setOnClickListener {
-            searchLayer.visibility = View.GONE
-            urlInput.clearFocus()
+        webView.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView?, url: String?) {
+                swipeRefresh.isRefreshing = false
+                urlDisplayFake.text = url
+            }
         }
 
-        btnClear.setOnClickListener { searchFocusInput.text.clear() }
+        // --- DOWNLOAD & SHARE API ---
+        webView.setDownloadListener { url, _, _, _, _ ->
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            startActivity(intent)
+        }
 
-        searchFocusInput.setOnEditorActionListener { v, _, _ ->
-            val query = v.text.toString()
+        // --- SEARCH FOCUS MODE LOGIC ---
+        findViewById<View>(R.id.search_container_trigger).setOnClickListener {
+            searchLayer.visibility = View.VISIBLE
+            urlInputReal.requestFocus()
+            urlInputReal.setText(webView.url)
+            urlInputReal.selectAll()
+        }
+
+        findViewById<ImageButton>(R.id.btn_back_search).setOnClickListener {
+            searchLayer.visibility = View.GONE
+        }
+
+        findViewById<ImageButton>(R.id.btn_clear_text).setOnClickListener {
+            urlInputReal.text.clear()
+        }
+
+        urlInputReal.setOnEditorActionListener { v, _, _ ->
+            val query = v.text.toString().trim()
             if (query.isNotEmpty()) {
-                searchHistory.add(0, query) // Simpan history
-                val url = if (query.contains(".")) "https://$query" else "https://www.google.com/search?q=$query"
+                historyList.add(0, query)
+                val url = if (query.contains(".") && !query.contains(" ")) {
+                    if (query.startsWith("http")) query else "https://$query"
+                } else "https://www.google.com/search?q=$query"
+                
                 webView.loadUrl(url)
                 searchLayer.visibility = View.GONE
             }
             true
         }
 
-        // --- 4. API SHARE (Di Tombol More) ---
-        findViewById<ImageButton>(R.id.btn_more).setOnClickListener { view ->
+        // --- MENU MORE ---
+        btnMore.setOnClickListener { view ->
             val popup = PopupMenu(this, view, Gravity.END, 0, R.style.CustomPopupStyle)
             popup.menu.add("Bagikan Halaman")
-            popup.menu.add("Unduhan")
             popup.menu.add("Refresh")
-            
-            popup.setOnMenuItemClickListener { item ->
-                when (item.title) {
-                    "Bagikan Halaman" -> {
-                        val intent = Intent(Intent.ACTION_SEND)
-                        intent.type = "text/plain"
-                        intent.putExtra(Intent.EXTRA_TEXT, webView.url)
-                        startActivity(Intent.createChooser(intent, "Share Link"))
+            popup.setOnMenuItemClickListener {
+                if (it.title == "Bagikan Halaman") {
+                    val intent = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT, webView.url)
                     }
-                    "Unduhan" -> downloadLayer.visibility = View.VISIBLE
-                    "Refresh" -> webView.reload()
-                }
+                    startActivity(Intent.createChooser(intent, "Share via Open Br"))
+                } else if (it.title == "Refresh") webView.reload()
                 true
             }
             popup.show()
         }
+
+        webView.loadUrl("https://www.google.com")
     }
 
     override fun onBackPressed() {
-        if (downloadLayer.visibility == View.VISIBLE) {
-            downloadLayer.visibility = View.GONE
-        } else if (searchLayer.visibility == View.VISIBLE) {
+        if (searchLayer.visibility == View.VISIBLE) {
             searchLayer.visibility = View.GONE
         } else if (webView.canGoBack()) {
             webView.goBack()

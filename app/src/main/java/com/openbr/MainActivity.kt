@@ -9,6 +9,9 @@ import android.view.inputmethod.InputMethodManager
 import android.webkit.*
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.webkit.WebSettingsCompat
+import androidx.webkit.WebViewFeature
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 
 class MainActivity : AppCompatActivity() {
@@ -23,62 +26,56 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // Binding UI
+        // Binding UI - Pastikan ID di XML cocok!
         webView = findViewById(R.id.webview)
         searchLayer = findViewById(R.id.search_focus_layer)
         urlDisplayFake = findViewById(R.id.url_display_fake)
         urlInputReal = findViewById(R.id.url_input_real)
         progressBar = findViewById(R.id.progress_bar)
+        
         val swipeRefresh = findViewById<SwipeRefreshLayout>(R.id.swipe_refresh)
         val btnHome = findViewById<ImageView>(R.id.btn_home)
         val btnClear = findViewById<ImageButton>(R.id.btn_clear_text)
         val btnBackSearch = findViewById<ImageButton>(R.id.btn_back_search)
         val btnMore = findViewById<ImageButton>(R.id.btn_more)
 
-        // --- ENGINE SETTINGS (Fix Loading) ---
+        // --- ENGINE SETTINGS ---
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
-            loadWithOverviewMode = true
-            useWideViewPort = true
             databaseEnabled = true
-            javaScriptCanOpenWindowsAutomatically = true
             mediaPlaybackRequiresUserGesture = false
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
             userAgentString = "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Mobile Safari/537.36"
+            
+            // DARK MODE (Karena Gradle udah lu benerin)
+            if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
+                WebSettingsCompat.setForceDark(this, WebSettingsCompat.FORCE_DARK_AUTO)
+            }
         }
 
         webView.webViewClient = object : WebViewClient() {
-            override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
-                progressBar.visibility = View.VISIBLE
-            }
             override fun onPageFinished(view: WebView?, url: String?) {
                 progressBar.visibility = View.GONE
                 swipeRefresh.isRefreshing = false
                 urlDisplayFake.text = url
-            }
-            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                return false // Biar tetep buka di dalam aplikasi
             }
         }
 
         webView.webChromeClient = object : WebChromeClient() {
             override fun onProgressChanged(view: WebView?, newProgress: Int) {
                 progressBar.progress = newProgress
+                progressBar.visibility = if (newProgress < 100) View.VISIBLE else View.GONE
             }
             override fun onPermissionRequest(request: PermissionRequest) {
-                request.grant(request.resources)
+                request.grant(request.resources) // Fix Izin Kamera/Mic di Web
             }
         }
 
-        // --- LOGIC TOMBOL ---
+        // --- FIX TOMBOL & NAVIGASI ---
+        
+        btnHome.setOnClickListener { webView.loadUrl("https://www.google.com") }
 
-        // Tombol Home (Kembali ke Google atau awal)
-        btnHome.setOnClickListener {
-            webView.loadUrl("https://www.google.com")
-        }
-
-        // Buka Search Focus
         findViewById<View>(R.id.search_container_trigger).setOnClickListener {
             searchLayer.visibility = View.VISIBLE
             urlInputReal.setText(webView.url)
@@ -87,19 +84,14 @@ class MainActivity : AppCompatActivity() {
             imm.showSoftInput(urlInputReal, InputMethodManager.SHOW_IMPLICIT)
         }
 
-        // Tombol X (Hapus Teks) - FIX
-        btnClear.setOnClickListener {
-            urlInputReal.text.clear()
-        }
+        btnClear.setOnClickListener { urlInputReal.text.clear() }
 
-        // Tombol Back di Search - FIX
         btnBackSearch.setOnClickListener {
             searchLayer.visibility = View.GONE
             val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
             imm.hideSoftInputFromWindow(urlInputReal.windowToken, 0)
         }
 
-        // Input URL / Search
         urlInputReal.setOnEditorActionListener { v, _, _ ->
             val query = v.text.toString().trim()
             if (query.isNotEmpty()) {
@@ -108,13 +100,10 @@ class MainActivity : AppCompatActivity() {
                 } else "https://www.google.com/search?q=$query"
                 webView.loadUrl(url)
                 searchLayer.visibility = View.GONE
-                val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-                imm.hideSoftInputFromWindow(urlInputReal.windowToken, 0)
             }
             true
         }
 
-        // Menu Titik Tiga
         btnMore.setOnClickListener { view ->
             val popup = PopupMenu(this, view)
             popup.menu.add("Bagikan")
@@ -132,27 +121,21 @@ class MainActivity : AppCompatActivity() {
             popup.show()
         }
 
-        // Download
         webView.setDownloadListener { url, _, _, _, _ ->
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
         }
 
         swipeRefresh.setOnRefreshListener { webView.reload() }
 
-        // Load awal
-        webView.loadUrl("https://www.google.com")
-        
-        // Minta Izin Kamera/Mic
+        // Minta Izin Media/Kamera
         ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO), 1)
+
+        webView.loadUrl("https://www.google.com")
     }
 
     override fun onBackPressed() {
-        if (searchLayer.visibility == View.VISIBLE) {
-            searchLayer.visibility = View.GONE
-        } else if (webView.canGoBack()) {
-            webView.goBack()
-        } else {
-            super.onBackPressed()
-        }
+        if (searchLayer.visibility == View.VISIBLE) searchLayer.visibility = View.GONE
+        else if (webView.canGoBack()) webView.goBack()
+        else super.onBackPressed()
     }
 }

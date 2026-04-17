@@ -2,9 +2,7 @@ package com.openbr
 
 import android.os.Bundle
 import android.view.*
-import android.webkit.WebChromeClient
-import android.webkit.WebView
-import android.webkit.WebViewClient
+import android.webkit.*
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
@@ -14,98 +12,81 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
     private lateinit var appBar: AppBarLayout
-    private lateinit var swipeRefresh: SwipeRefreshLayout
     private lateinit var progressBar: ProgressBar
+    private lateinit var swipeRefresh: SwipeRefreshLayout
     private var isUiHidden = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // 1. Inisialisasi View
         webView = findViewById(R.id.webview)
         appBar = findViewById(R.id.app_bar)
-        swipeRefresh = findViewById(R.id.swipe_refresh)
         progressBar = findViewById(R.id.progress_bar)
+        swipeRefresh = findViewById(R.id.swipe_refresh)
         val urlInput = findViewById<EditText>(R.id.url_input)
         val btnMore = findViewById<ImageButton>(R.id.btn_more)
-        val webContainer = findViewById<FrameLayout>(R.id.web_container)
-        val btnHome = findViewById<ImageView>(R.id.btn_home)
-        val rightButtons = findViewById<LinearLayout>(R.id.right_buttons)
+        val sensorArea = findViewById<FrameLayout>(R.id.gesture_sensor_area)
 
-        // 2. Fix Swipe Refresh (Biar gak ganggu pas scroll web di tengah)
-        swipeRefresh.viewTreeObserver.addOnScrollChangedListener {
-            swipeRefresh.isEnabled = webView.scrollY == 0
+        // --- 1. SETTING WEBVIEW BIAR GAK MACET ---
+        webView.settings.apply {
+            javaScriptEnabled = true
+            domStorageEnabled = true
+            databaseEnabled = true
+            allowContentAccess = true
+            allowFileAccess = true
+            useWideViewPort = true
+            loadWithOverviewMode = true
+            javaScriptCanOpenWindowsAutomatically = true
+            setSupportMultipleWindows(true) // Penting buat link dari Google
         }
-        swipeRefresh.setOnRefreshListener { webView.reload() }
 
-        // 3. Webview Settings & Barload (ProgressBar)
-        webView.settings.javaScriptEnabled = true
-        webView.settings.domStorageEnabled = true
-        
-        // Logika Barload (Garis Biru lari)
         webView.webChromeClient = object : WebChromeClient() {
             override fun onProgressChanged(view: WebView?, newProgress: Int) {
-                if (newProgress < 100) {
-                    progressBar.visibility = View.VISIBLE
-                    progressBar.progress = newProgress
-                } else {
-                    progressBar.visibility = View.GONE
-                }
+                progressBar.progress = newProgress
+                progressBar.visibility = if (newProgress < 100) View.VISIBLE else View.GONE
             }
         }
 
         webView.webViewClient = object : WebViewClient() {
+            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                return false // Biar semua link dibuka di dalam Open Br, bukan pindah app
+            }
             override fun onPageFinished(view: WebView?, url: String?) {
                 swipeRefresh.isRefreshing = false
                 urlInput.setText(url)
             }
         }
 
-        // 4. Fokus Search ala Chrome (Input membesar)
-        urlInput.setOnFocusChangeListener { _, hasFocus ->
-            if (hasFocus) {
-                btnHome.visibility = View.GONE
-                rightButtons.visibility = View.GONE
-            } else {
-                btnHome.visibility = View.VISIBLE
-                rightButtons.visibility = View.VISIBLE
-            }
-        }
-
-        // 5. Double Tap to Hide UI (Focus Mode)
+        // --- 2. DOUBLE TAP HANYA DI HEADER ---
         val gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
             override fun onDoubleTap(e: MotionEvent): Boolean {
-                isUiHidden = !isUiHidden
-                appBar.visibility = if (isUiHidden) View.GONE else View.VISIBLE
+                isUiHidden = true
+                appBar.visibility = View.GONE
+                Toast.makeText(this@MainActivity, "Ketuk layar mana saja untuk memunculkan UI", Toast.LENGTH_SHORT).show()
                 return true
             }
         })
 
-        webContainer.setOnTouchListener { _, event ->
-            gestureDetector.onTouchEvent(event)
-            false 
-        }
+        // Sensor area cuma di header (Gak ganggu game/web)
+        sensorArea.setOnTouchListener { _, event -> gestureDetector.onTouchEvent(event) }
 
-        // 6. Menu Popup Titik Tiga
-        btnMore.setOnClickListener { view ->
-            // Ganti baris PopupMenu yang lama dengan ini:
-            val popup = PopupMenu(this, view, Gravity.END, 0, R.style.CustomPopupStyle)
-            popup.menu.add("Refresh")
-            popup.menu.add("DNS Bawaan")
-            popup.menu.add("Pengaturan")
-            popup.setOnMenuItemClickListener { item ->
-                when (item.title) {
-                    "Refresh" -> webView.reload()
-                }
-                true
+        // Ketuk bebas di WebView buat balikin UI kalau lagi hidden
+        webView.setOnTouchListener { _, event ->
+            if (isUiHidden && event.action == MotionEvent.ACTION_DOWN) {
+                appBar.visibility = View.VISIBLE
+                isUiHidden = false
             }
-            popup.show()
+            false
         }
 
-        // 7. Navigasi & Enter URL
-        btnHome.setOnClickListener { webView.loadUrl("https://www.google.com") }
+        // --- 3. FIX SWIPE REFRESH ---
+        swipeRefresh.viewTreeObserver.addOnScrollChangedListener {
+            swipeRefresh.isEnabled = webView.scrollY == 0
+        }
+        swipeRefresh.setOnRefreshListener { webView.reload() }
 
+        // --- 4. ENTER URL & SEARCH ---
         urlInput.setOnEditorActionListener { v, _, _ ->
             val input = v.text.toString().trim()
             if (input.isNotEmpty()) {
@@ -118,6 +99,15 @@ class MainActivity : AppCompatActivity() {
             true
         }
 
+        // --- 5. MENU PREMIUM (Radius) ---
+        btnMore.setOnClickListener { view ->
+            val popup = PopupMenu(this, view, Gravity.END, 0, R.style.CustomPopupStyle)
+            popup.menu.add("Refresh")
+            popup.menu.add("DNS (Coming Soon)")
+            popup.menu.add("Pengaturan")
+            popup.show()
+        }
+
         webView.loadUrl("https://www.google.com")
     }
 
@@ -125,3 +115,4 @@ class MainActivity : AppCompatActivity() {
         if (webView.canGoBack()) webView.goBack() else super.onBackPressed()
     }
 }
+

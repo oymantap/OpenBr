@@ -18,6 +18,13 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // PAKSA HP PAKAI MESIN GRAFIS (Biar gak macet ngerender web berat)
+        window.setFlags(
+            WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+            WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
+        )
+        
         setContentView(R.layout.activity_main)
 
         webView = findViewById(R.id.webview)
@@ -28,18 +35,28 @@ class MainActivity : AppCompatActivity() {
         val btnMore = findViewById<ImageButton>(R.id.btn_more)
         val sensorArea = findViewById<FrameLayout>(R.id.gesture_sensor_area)
 
-        // --- 1. SETTING WEBVIEW BIAR GAK MACET ---
+        // --- SETTING WEBVIEW SUPER POWER ---
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
             databaseEnabled = true
-            allowContentAccess = true
-            allowFileAccess = true
+            
+            // Biar bisa buka link dari Google Search (Redirect Fix)
+            setSupportMultipleWindows(true)
+            javaScriptCanOpenWindowsAutomatically = true
+            
+            // Setting tampilan biar gak kaku
             useWideViewPort = true
             loadWithOverviewMode = true
-            javaScriptCanOpenWindowsAutomatically = true
-            setSupportMultipleWindows(true) // Penting buat link dari Google
+            
+            // Penting: Biar lancar ngerender gambar & script website modern
+            mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+            cacheMode = WebSettings.LOAD_DEFAULT 
         }
+
+        // BIAR SMOOTH SCROLLING
+        webView.isVerticalScrollBarEnabled = true
+        webView.isHorizontalScrollBarEnabled = false
 
         webView.webChromeClient = object : WebChromeClient() {
             override fun onProgressChanged(view: WebView?, newProgress: Int) {
@@ -49,29 +66,35 @@ class MainActivity : AppCompatActivity() {
         }
 
         webView.webViewClient = object : WebViewClient() {
-            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                return false // Biar semua link dibuka di dalam Open Br, bukan pindah app
+            // FIX UTAMA: Tangani Error SSL (Sering bikin macet di awal loading)
+            override fun onReceivedSslError(view: WebView?, handler: SslErrorHandler?, error: android.net.http.SslError?) {
+                handler?.proceed() // Lanjut terus meskipun ada peringatan sertifikat (ala browser mod)
             }
+
+            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                // Jangan lempar link ke aplikasi lain, tetep di Open Br
+                return false 
+            }
+
             override fun onPageFinished(view: WebView?, url: String?) {
                 swipeRefresh.isRefreshing = false
                 urlInput.setText(url)
             }
         }
 
-        // --- 2. DOUBLE TAP HANYA DI HEADER ---
+        // --- DOUBLE TAP DI HEADER SAJA ---
         val gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
             override fun onDoubleTap(e: MotionEvent): Boolean {
                 isUiHidden = true
                 appBar.visibility = View.GONE
-                Toast.makeText(this@MainActivity, "Ketuk layar mana saja untuk memunculkan UI", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@MainActivity, "UI Hidden. Tap layar web sekali untuk mengembalikan.", Toast.LENGTH_SHORT).show()
                 return true
             }
         })
 
-        // Sensor area cuma di header (Gak ganggu game/web)
         sensorArea.setOnTouchListener { _, event -> gestureDetector.onTouchEvent(event) }
 
-        // Ketuk bebas di WebView buat balikin UI kalau lagi hidden
+        // Tap di web sekali buat balikin UI
         webView.setOnTouchListener { _, event ->
             if (isUiHidden && event.action == MotionEvent.ACTION_DOWN) {
                 appBar.visibility = View.VISIBLE
@@ -80,13 +103,12 @@ class MainActivity : AppCompatActivity() {
             false
         }
 
-        // --- 3. FIX SWIPE REFRESH ---
+        // --- NAVIGASI ---
         swipeRefresh.viewTreeObserver.addOnScrollChangedListener {
             swipeRefresh.isEnabled = webView.scrollY == 0
         }
         swipeRefresh.setOnRefreshListener { webView.reload() }
 
-        // --- 4. ENTER URL & SEARCH ---
         urlInput.setOnEditorActionListener { v, _, _ ->
             val input = v.text.toString().trim()
             if (input.isNotEmpty()) {
@@ -99,7 +121,6 @@ class MainActivity : AppCompatActivity() {
             true
         }
 
-        // --- 5. MENU PREMIUM (Radius) ---
         btnMore.setOnClickListener { view ->
             val popup = PopupMenu(this, view, Gravity.END, 0, R.style.CustomPopupStyle)
             popup.menu.add("Refresh")

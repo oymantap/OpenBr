@@ -49,6 +49,37 @@
                 </LinearLayout>
 
                 <LinearLayout
+    android:id="@+id/activity_layer"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?android:attr/colorBackground"
+    android:orientation="vertical"
+    android:visibility="gone"
+    android:elevation="26dp"
+    android:clickable="true">
+    
+    <androidx.appcompat.widget.Toolbar
+        android:layout_width="match_parent"
+        android:layout_height="64dp"
+        app:title="Aktivitas Website"
+        app:navigationIcon="@drawable/ic_close">
+        <ImageButton
+            android:id="@+id/btn_close_activity"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_close"
+            android:layout_gravity="end" />
+    </androidx.appcompat.widget.Toolbar>
+    
+    <ListView 
+        android:id="@+id/list_activity_real" 
+        android:layout_width="match_parent" 
+        android:layout_height="match_parent" 
+        android:dividerHeight="1dp" />
+</LinearLayout>
+
+                <LinearLayout
                     android:id="@+id/right_buttons"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"

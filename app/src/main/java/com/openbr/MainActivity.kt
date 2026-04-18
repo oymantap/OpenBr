@@ -1,174 +1,142 @@
 package com.openbr
 
-import android.content.*
-import android.content.res.Configuration
-import android.media.MediaMetadata
-import android.media.session.MediaSession
-import android.net.Uri
+import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Color
 import android.os.Bundle
 import android.view.*
-import android.view.inputmethod.InputMethodManager
 import android.webkit.*
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.app.AppCompatDelegate
+import androidx.palette.graphics.Palette
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-import androidx.webkit.WebSettingsCompat
-import androidx.webkit.WebViewFeature
 import org.json.JSONArray
-import org.json.JSONObject
 import java.io.File
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var webView: WebView
-    private lateinit var searchLayer: View
-    private lateinit var activityLayer: View
-    private lateinit var urlInputReal: EditText
-    private lateinit var progressBar: ProgressBar
-    private lateinit var tabCountText: TextView
-    private lateinit var listHistorySearch: ListView
-    private lateinit var listActivityReal: ListView
-    private lateinit var mediaSession: MediaSession
-    private val dataFile = "openbr_v2.json"
-    private var tabCount = 1
+    private lateinit var container: FrameLayout
+    private lateinit var tabLayer: View
+    private lateinit var tabList: ListView
+    private lateinit var header: View
+    
+    // Simpan list tab aktif
+    private val tabs = mutableListOf<WebView>()
+    private var currentTabIndex = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-
-        setupMediaSession()
-        initUI()
         
-        // Load awal (Google atau file dari luar)
-        val startUrl = intent?.data?.toString() ?: "https://www.google.com"
-        webView.loadUrl(startUrl)
+        container = findViewById(R.id.webview_container)
+        tabLayer = findViewById(R.id.tab_layer)
+        tabList = findViewById(R.id.list_tabs_preview)
+        header = findViewById(R.id.app_bar_layout) // Pastiin ID ini ada di XML
+
+        createNewTab("https://www.google.com")
+        initControls()
     }
 
-    private fun initUI() {
-        webView = findViewById(R.id.webview)
-        searchLayer = findViewById(R.id.search_focus_layer)
-        activityLayer = findViewById(R.id.activity_layer)
-        urlInputReal = findViewById(R.id.url_input_real)
-        progressBar = findViewById(R.id.progress_bar)
-        tabCountText = findViewById(R.id.tab_count)
-        listHistorySearch = findViewById(R.id.list_history_search)
-        listActivityReal = findViewById(R.id.list_activity_real)
-        val swipeRefresh = findViewById<SwipeRefreshLayout>(R.id.swipe_refresh)
-
-        webView.settings.apply {
-            javaScriptEnabled = true
-            domStorageEnabled = true
-            allowFileAccess = true
-            allowContentAccess = true
+    private fun createNewTab(url: String) {
+        val newWebView = WebView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+            settings.javaScriptEnabled = true
+            settings.domStorageEnabled = true
             
-            // Fix Dark Header / Website Content
-            if (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES) {
-                if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
-                    WebSettingsCompat.setForceDark(this, WebSettingsCompat.FORCE_DARK_ON)
+            webViewClient = object : WebViewClient() {
+                override fun onPageFinished(view: WebView?, url: String?) {
+                    updateDynamicTheme(view)
+                    findViewById<TextView>(R.id.url_display_fake).text = view?.title
+                }
+            }
+            
+            // FIX: Web Share API Support
+            webChromeClient = object : WebChromeClient() {
+                override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
+                    // Handle Fullscreen video
                 }
             }
         }
-
-        webView.webViewClient = object : WebViewClient() {
-            override fun onPageFinished(view: WebView?, url: String?) {
-                progressBar.visibility = View.GONE
-                swipeRefresh.isRefreshing = false
-                findViewById<TextView>(R.id.url_display_fake).text = view?.title ?: url
-                
-                // Simpan Aktivitas Website (🌐)
-                url?.let { 
-                    if (!it.contains("google.com/search")) saveMasterData(it, view?.title ?: it, "activity") 
-                }
-            }
-            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                tabCount++; tabCountText.text = tabCount.toString()
-                return false
-            }
-        }
-
-        webView.webChromeClient = object : WebChromeClient() {
-            override fun onProgressChanged(view: WebView?, p: Int) {
-                progressBar.progress = p
-                progressBar.visibility = if (p < 100) View.VISIBLE else View.GONE
-            }
-        }
-
-        // --- TOMBOL-TOMBOL ---
-        findViewById<ImageView>(R.id.btn_home).setOnClickListener { webView.loadUrl("https://www.google.com") }
         
-        findViewById<View>(R.id.search_container_trigger).setOnClickListener {
-            searchLayer.visibility = View.VISIBLE
-            showHistoryList(listHistorySearch, "search")
-            urlInputReal.requestFocus()
-            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-            imm.showSoftInput(urlInputReal, 0)
+        // Custom Interface buat Share API
+        newWebView.addJavascriptInterface(object {
+            @JavascriptInterface
+            fun share(title: String, text: String, url: String) {
+                val intent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TITLE, title)
+                    putExtra(Intent.EXTRA_TEXT, "$text \n $url")
+                }
+                startActivity(Intent.createChooser(intent, "Share via Open Br"))
+            }
+        }, "AndroidShare")
+
+        newWebView.loadUrl(url)
+        tabs.add(newWebView)
+        switchTab(tabs.size - 1)
+    }
+
+    private fun switchTab(index: Int) {
+        container.removeAllViews()
+        container.addView(tabs[index])
+        currentTabIndex = index
+        findViewById<TextView>(R.id.tab_count).text = tabs.size.toString()
+    }
+
+    private fun updateDynamicTheme(view: WebView?) {
+        val bitmap = view?.favicon ?: return
+        Palette.from(bitmap).generate { palette ->
+            val color = palette?.getDominantColor(Color.parseColor("#121212")) ?: return@generate
+            header.setBackgroundColor(color)
+            window.statusBarColor = color
+        }
+    }
+
+    private fun initControls() {
+        // Tombol buka tab layer
+        findViewById<View>(R.id.btn_tabs).setOnClickListener {
+            tabLayer.visibility = View.VISIBLE
+            showTabPreview()
         }
 
-        findViewById<ImageButton>(R.id.btn_more).setOnClickListener { view ->
-            val popup = PopupMenu(this, view)
-            popup.menuInflater.inflate(R.menu.main_menu, popup.menu)
-            popup.setOnMenuItemClickListener { item ->
-                when (item.itemId) {
-                    R.id.menu_refresh -> webView.reload()
-                    R.id.menu_activity -> {
-                        activityLayer.visibility = View.VISIBLE
-                        showHistoryList(listActivityReal, "activity")
+        // Tombol Close di Layer (Bukan keluar app!)
+        findViewById<ImageButton>(R.id.btn_close_tab_layer).setOnClickListener {
+            tabLayer.visibility = View.GONE
+        }
+        
+        // Tombol Home
+        findViewById<View>(R.id.btn_home).setOnClickListener { createNewTab("https://www.google.com") }
+    }
+
+    private fun showTabPreview() {
+        val adapter = object : ArrayAdapter<WebView>(this, R.layout.item_tab_card, tabs) {
+            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                val v = layoutInflater.inflate(R.layout.item_tab_card, null)
+                val title = v.findViewById<TextView>(R.id.tab_card_title)
+                val close = v.findViewById<ImageButton>(R.id.btn_close_single_tab)
+                
+                title.text = tabs[position].title ?: "New Tab"
+                v.setOnClickListener { switchTab(position); tabLayer.visibility = View.GONE }
+                close.setOnClickListener { 
+                    if(tabs.size > 1) {
+                        tabs.removeAt(position)
+                        notifyDataSetChanged()
+                        if(currentTabIndex >= tabs.size) switchTab(tabs.size - 1)
                     }
                 }
-                true
-            }
-            popup.show()
-        }
-
-        urlInputReal.setOnEditorActionListener { v, _, _ ->
-            val query = v.text.toString().trim()
-            if (query.isNotEmpty()) {
-                val url = if (query.contains(".") && !query.contains(" ")) "https://$query" else "https://www.google.com/search?q=$query"
-                if (!query.contains(".")) saveMasterData(query, "Pencarian", "search")
-                webView.loadUrl(url)
-                searchLayer.visibility = View.GONE
-            }
-            true
-        }
-
-        findViewById<ImageButton>(R.id.btn_back_search).setOnClickListener { searchLayer.visibility = View.GONE }
-        findViewById<ImageButton>(R.id.btn_close_activity).setOnClickListener { activityLayer.visibility = View.GONE }
-        swipeRefresh.setOnRefreshListener { webView.reload() }
-    }
-
-    private fun saveMasterData(valStr: String, title: String, type: String) {
-        try {
-            val file = File(filesDir, dataFile)
-            val json = if (file.exists()) JSONArray(file.readText()) else JSONArray()
-            json.put(JSONObject().apply { put("val", valStr); put("title", title); put("type", type) })
-            file.writeText(json.toString())
-        } catch (e: Exception) {}
-    }
-
-    private fun showHistoryList(listView: ListView, filter: String) {
-        val file = File(filesDir, dataFile)
-        if (!file.exists()) return
-        val json = JSONArray(file.readText())
-        val items = mutableListOf<String>()
-        val urls = mutableListOf<String>()
-        for (i in (json.length() - 1) downTo 0) {
-            val obj = json.getJSONObject(i)
-            if (obj.getString("type") == filter) {
-                items.add(obj.getString("title") + "\n" + obj.getString("val"))
-                urls.add(obj.getString("val"))
+                return v
             }
         }
-        listView.adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, items.distinct())
-        listView.setOnItemClickListener { _, _, pos, _ ->
-            webView.loadUrl(if (urls[pos].startsWith("http")) urls[pos] else "https://google.com/search?q=${urls[pos]}")
-            searchLayer.visibility = View.GONE; activityLayer.visibility = View.GONE
-        }
+        tabList.adapter = adapter
     }
 
-    private fun setupMediaSession() {
-        mediaSession = MediaSession(this, "OpenBr")
-        mediaSession.isActive = true
+    override fun onBackPressed() {
+        if (tabLayer.visibility == View.VISIBLE) {
+            tabLayer.visibility = View.GONE // FIX: Tutup layer, bukan app
+        } else if (tabs[currentTabIndex].canGoBack()) {
+            tabs[currentTabIndex].goBack()
+        } else {
+            super.onBackPressed()
+        }
     }
 }
-

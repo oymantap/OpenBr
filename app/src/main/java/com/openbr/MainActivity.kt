@@ -1,6 +1,7 @@
 package com.openbr
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -13,6 +14,9 @@ import androidx.core.app.ActivityCompat
 import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewFeature
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
 
 class MainActivity : AppCompatActivity() {
 
@@ -21,6 +25,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var urlDisplayFake: TextView
     private lateinit var urlInputReal: EditText
     private lateinit var progressBar: ProgressBar
+    private val historyFileName = "history.json"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -33,41 +38,30 @@ class MainActivity : AppCompatActivity() {
         progressBar = findViewById(R.id.progress_bar)
         
         val swipeRefresh = findViewById<SwipeRefreshLayout>(R.id.swipe_refresh)
-        val btnHome = findViewById<ImageView>(R.id.btn_home)
-        val btnClear = findViewById<ImageButton>(R.id.btn_clear_text)
-        val btnBackSearch = findViewById<ImageButton>(R.id.btn_back_search)
-        val btnMore = findViewById<ImageButton>(R.id.btn_more)
-        val btnTabs = findViewById<View>(R.id.btn_tabs)
 
-        // --- ENGINE SETTINGS (Support Multiplayer/WebRTC) ---
+        // --- ENGINE SETTINGS ---
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
             databaseEnabled = true
             allowFileAccess = true
-            allowContentAccess = true
             mediaPlaybackRequiresUserGesture = false
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
             userAgentString = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36"
-            
-            if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
-                WebSettingsCompat.setForceDark(this, WebSettingsCompat.FORCE_DARK_AUTO)
-            }
         }
 
-        webView.webViewClient = object : WebViewClient() {
-            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                val url = request?.url.toString()
-                if (url.startsWith("http")) {
-                    return false // Biar tetep load di WebView aplikasi
-                }
-                return true
-            }
+        // Bridge buat API Share Website
+        webView.addJavascriptInterface(WebShareInterface(this), "AndroidShare")
 
+        webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 progressBar.visibility = View.GONE
                 swipeRefresh.isRefreshing = false
                 urlDisplayFake.text = url
+                url?.let { saveToHistory(it) } // Simpan ke JSON
+            }
+            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                return false 
             }
         }
 
@@ -76,33 +70,24 @@ class MainActivity : AppCompatActivity() {
                 progressBar.progress = newProgress
                 progressBar.visibility = if (newProgress < 100) View.VISIBLE else View.GONE
             }
+            // Support Multimedia/Multiplayer
             override fun onPermissionRequest(request: PermissionRequest) {
-                request.grant(request.resources) // Izin kamera/mic buat WebRTC multiplayer
+                request.grant(request.resources)
             }
         }
 
-        // --- NAVIGATION ---
-        btnHome.setOnClickListener { webView.loadUrl("https://www.google.com") }
-
+        // --- ACTION BUTTONS ---
+        findViewById<ImageView>(R.id.btn_home).setOnClickListener { webView.loadUrl("https://www.google.com") }
+        
         findViewById<View>(R.id.search_container_trigger).setOnClickListener {
             searchLayer.visibility = View.VISIBLE
             urlInputReal.setText(webView.url)
             urlInputReal.requestFocus()
-            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-            imm.showSoftInput(urlInputReal, InputMethodManager.SHOW_IMPLICIT)
+            (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(urlInputReal, 0)
         }
 
-        btnTabs.setOnClickListener {
-            Toast.makeText(this, "Multi-tab fitur segera hadir!", Toast.LENGTH_SHORT).show()
-        }
-
-        btnClear.setOnClickListener { urlInputReal.text.clear() }
-
-        btnBackSearch.setOnClickListener {
-            searchLayer.visibility = View.GONE
-            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-            imm.hideSoftInputFromWindow(urlInputReal.windowToken, 0)
-        }
+        findViewById<ImageButton>(R.id.btn_back_search).setOnClickListener { searchLayer.visibility = View.GONE }
+        findViewById<ImageButton>(R.id.btn_clear_text).setOnClickListener { urlInputReal.text.clear() }
 
         urlInputReal.setOnEditorActionListener { v, _, _ ->
             val query = v.text.toString().trim()
@@ -110,53 +95,51 @@ class MainActivity : AppCompatActivity() {
                 val url = if (query.contains(".") && !query.contains(" ")) {
                     if (query.startsWith("http")) query else "https://$query"
                 } else "https://www.google.com/search?q=$query"
-                
                 webView.loadUrl(url)
                 searchLayer.visibility = View.GONE
-                val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-                imm.hideSoftInputFromWindow(urlInputReal.windowToken, 0)
+                (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(v.windowToken, 0)
             }
             true
         }
 
-        btnMore.setOnClickListener { view ->
-            val popup = PopupMenu(this, view)
-            popup.menu.add("Bagikan")
-            popup.menu.add("Refresh")
-            popup.setOnMenuItemClickListener {
-                if (it.title == "Bagikan") {
-                    val i = Intent(Intent.ACTION_SEND).apply {
-                        type = "text/plain"
-                        putExtra(Intent.EXTRA_TEXT, webView.url)
-                    }
-                    startActivity(Intent.createChooser(i, "Share"))
-                } else webView.reload()
-                true
-            }
-            popup.show()
-        }
-
-        webView.setDownloadListener { url, _, _, _, _ ->
-            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-        }
-
         swipeRefresh.setOnRefreshListener { webView.reload() }
-
-        ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO), 1)
         
-        if (webView.url == null) {
-            webView.loadUrl("https://www.google.com")
+        ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO), 1)
+        webView.loadUrl("https://www.google.com")
+    }
+
+    // --- JSON HISTORY LOGIC ---
+    private fun saveToHistory(url: String) {
+        try {
+            val file = File(filesDir, historyFileName)
+            val jsonArray = if (file.exists()) JSONArray(file.readText()) else JSONArray()
+            
+            val entry = JSONObject().apply {
+                put("url", url)
+                put("time", System.currentTimeMillis())
+            }
+            jsonArray.put(entry)
+            file.writeText(jsonArray.toString())
+        } catch (e: Exception) { e.printStackTrace() }
+    }
+
+    // --- JEMBATAN SHARE ---
+    class WebShareInterface(private val context: Context) {
+        @JavascriptInterface
+        fun share(title: String, text: String, url: String) {
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_SUBJECT, title)
+                putExtra(Intent.EXTRA_TEXT, "$text \n $url")
+            }
+            context.startActivity(Intent.createChooser(intent, "Share via Open Br"))
         }
     }
 
     override fun onBackPressed() {
-        if (searchLayer.visibility == View.VISIBLE) {
-            searchLayer.visibility = View.GONE
-        } else if (webView.canGoBack()) {
-            webView.goBack()
-        } else {
-            super.onBackPressed()
-        }
+        if (searchLayer.visibility == View.VISIBLE) searchLayer.visibility = View.GONE
+        else if (webView.canGoBack()) webView.goBack()
+        else super.onBackPressed()
     }
 }
 

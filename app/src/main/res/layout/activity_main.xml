@@ -7,53 +7,43 @@
     android:background="?android:attr/colorBackground">
 
     <com.google.android.material.appbar.AppBarLayout
-        android:id="@+id/app_bar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="?android:attr/colorBackground"
         app:elevation="2dp">
 
         <androidx.appcompat.widget.Toolbar
-            android:id="@+id/toolbar"
             android:layout_width="match_parent"
-            android:layout_height="64dp"
-            app:contentInsetStart="0dp">
+            android:layout_height="64dp">
 
-            <RelativeLayout
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:paddingHorizontal="12dp">
+            <RelativeLayout android:layout_width="match_parent" android:layout_height="match_parent" android:layout_marginEnd="16dp">
 
                 <ImageView
                     android:id="@+id/btn_home"
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
-                    android:layout_alignParentStart="true"
+                    android:layout_width="26dp"
+                    android:layout_height="26dp"
                     android:layout_centerVertical="true"
-                    android:src="@android:drawable/ic_dialog_dialer"
+                    android:src="@android:drawable/ic_menu_view"
                     app:tint="?android:attr/textColorSecondary" />
 
                 <LinearLayout
                     android:id="@+id/search_container_trigger"
                     android:layout_width="match_parent"
-                    android:layout_height="42dp"
+                    android:layout_height="40dp"
                     android:layout_centerVertical="true"
                     android:layout_toEndOf="@id/btn_home"
                     android:layout_toStartOf="@+id/right_buttons"
                     android:layout_marginHorizontal="12dp"
-                    android:background="@drawable/bg_search_bar"
+                    android:background="@android:drawable/editbox_background_normal"
                     android:gravity="center_vertical"
-                    android:paddingHorizontal="16dp">
-
+                    android:paddingHorizontal="12dp">
                     <TextView
                         android:id="@+id/url_display_fake"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="Cari..."
-                        android:textColor="?android:attr/textColorPrimary"
-                        android:textSize="14sp"
                         android:singleLine="true"
-                        android:ellipsize="end" />
+                        android:textColor="?android:attr/textColorPrimary" />
                 </LinearLayout>
 
                 <LinearLayout
@@ -62,39 +52,14 @@
                     android:layout_height="wrap_content"
                     android:layout_alignParentEnd="true"
                     android:layout_centerVertical="true"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
+                    android:orientation="horizontal">
 
-                    <FrameLayout
-                        android:id="@+id/btn_tabs"
-                        android:layout_width="32dp"
-                        android:layout_height="32dp"
-                        android:layout_marginEnd="10dp"
-                        android:background="?attr/selectableItemBackgroundBorderless">
-                        <ImageView
-                            android:layout_width="22dp"
-                            android:layout_height="22dp"
-                            android:layout_gravity="center"
-                            android:src="@android:drawable/checkbox_on_background"
-                            app:tint="?android:attr/textColorSecondary" />
-                        <TextView
-                            android:id="@+id/tab_count"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_gravity="center"
-                            android:text="1"
-                            android:textSize="10sp"
-                            android:textStyle="bold"
-                            android:textColor="?android:attr/textColorSecondary" />
+                    <FrameLayout android:id="@+id/btn_tabs" android:layout_width="32dp" android:layout_height="32dp" android:layout_marginEnd="8dp">
+                        <ImageView android:layout_width="22dp" android:layout_height="22dp" android:layout_gravity="center" android:src="@android:drawable/btn_default_small" app:tint="?android:attr/textColorSecondary" />
+                        <TextView android:id="@+id/tab_count" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center" android:text="1" android:textSize="10sp" android:textStyle="bold" />
                     </FrameLayout>
 
-                    <ImageButton
-                        android:id="@+id/btn_more"
-                        android:layout_width="32dp"
-                        android:layout_height="32dp"
-                        android:background="?attr/selectableItemBackgroundBorderless"
-                        android:src="@android:drawable/ic_menu_more"
-                        app:tint="?android:attr/textColorSecondary" />
+                    <ImageButton android:id="@+id/btn_more" android:layout_width="32dp" android:layout_height="32dp" android:background="?attr/selectableItemBackgroundBorderless" android:src="@android:drawable/ic_menu_more" app:tint="?android:attr/textColorSecondary" />
                 </LinearLayout>
             </RelativeLayout>
         </androidx.appcompat.widget.Toolbar>
@@ -103,7 +68,7 @@
             android:id="@+id/progress_bar"
             style="@android:style/Widget.ProgressBar.Horizontal"
             android:layout_width="match_parent"
-            android:layout_height="4dp"
+            android:layout_height="3dp"
             android:progressDrawable="@drawable/custom_progress"
             android:visibility="gone" />
     </com.google.android.material.appbar.AppBarLayout>
@@ -113,11 +78,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
-
-        <WebView
-            android:id="@+id/webview"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent" />
+        <WebView android:id="@+id/webview" android:layout_width="match_parent" android:layout_height="match_parent" />
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
     <LinearLayout
@@ -127,68 +88,16 @@
         android:background="?android:attr/colorBackground"
         android:orientation="vertical"
         android:visibility="gone"
-        android:elevation="15dp"
-        android:clickable="true"
-        android:focusable="true">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="64dp"
-            android:gravity="center_vertical"
-            android:paddingHorizontal="8dp">
-
-            <ImageButton
-                android:id="@+id/btn_back_search"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:src="@android:drawable/ic_menu_revert"
-                app:tint="?android:attr/textColorSecondary" />
-
-            <EditText
-                android:id="@+id/url_input_real"
-                android:layout_width="0dp"
-                android:layout_height="44dp"
-                android:layout_weight="1"
-                android:background="@drawable/bg_search_bar"
-                android:hint="Ketik URL atau cari..."
-                android:imeOptions="actionGo"
-                android:inputType="textUri"
-                android:paddingHorizontal="16dp"
-                android:singleLine="true"
-                android:textColor="?android:attr/textColorPrimary"
-                android:textSize="16sp" />
-
-            <ImageButton
-                android:id="@+id/btn_clear_text"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:src="@android:drawable/ic_menu_close_clear_cancel"
-                app:tint="?android:attr/textColorSecondary" />
+        android:elevation="20dp"
+        android:clickable="true">
+        
+        <LinearLayout android:layout_width="match_parent" android:layout_height="64dp" android:gravity="center_vertical" android:paddingHorizontal="8dp">
+            <ImageButton android:id="@+id/btn_back_search" android:layout_width="48dp" android:layout_height="48dp" android:src="@android:drawable/ic_menu_revert" android:background="?android:selectableItemBackground" app:tint="?android:attr/textColorSecondary" />
+            <EditText android:id="@+id/url_input_real" android:layout_width="0dp" android:layout_height="44dp" android:layout_weight="1" android:background="@android:drawable/editbox_background_normal" android:paddingHorizontal="12dp" android:imeOptions="actionGo" android:inputType="textUri" android:singleLine="true" android:textColor="?android:attr/textColorPrimary"/>
         </LinearLayout>
 
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:background="#DDDDDD" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Riwayat Pencarian &amp; Aktivitas"
-            android:textSize="12sp"
-            android:textStyle="bold"
-            android:textColor="?android:attr/textColorSecondary"
-            android:layout_margin="16dp" />
-
-        <ListView
-            android:id="@+id/list_history"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:divider="?android:attr/listDivider"
-            android:paddingHorizontal="8dp" />
+        <ListView android:id="@+id/list_history" android:layout_width="match_parent" android:layout_height="match_parent" android:divider="?android:attr/listDivider" />
     </LinearLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
-        
+                            

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item
+        android:id="@+id/menu_refresh"
+        android:title="Refresh"
+        android:icon="@drawable/ic_refresh"
+        app:showAsAction="ifRoom" />
+    <item
+        android:id="@+id/menu_activity"
+        android:title="Aktivitas Web"
+        android:icon="@drawable/ic_history"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/menu_dark_mode"
+        android:title="Ganti Tema"
+        android:icon="@drawable/ic_theme"
+        app:showAsAction="never" />
+</menu>
+

@@ -1,16 +1,20 @@
 package com.openbr
 
+import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.Bitmap
-import android.graphics.Color
 import android.os.Bundle
-import android.view.*
+import android.view.View
+import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
 import android.webkit.*
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
-import androidx.palette.graphics.Palette
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+import androidx.webkit.WebSettingsCompat
+import androidx.webkit.WebViewFeature
 
 class MainActivity : AppCompatActivity() {
 
@@ -21,25 +25,19 @@ class MainActivity : AppCompatActivity() {
     private lateinit var urlInputReal: EditText
     private lateinit var progressBar: ProgressBar
     private lateinit var tabCountText: TextView
-    private lateinit var appBar: View
-    
+    private lateinit var listHistorySearch: ListView
+    private lateinit var listActivityReal: ListView
+    private lateinit var swipeRefresh: SwipeRefreshLayout
+
     private val tabsList = mutableListOf<WebView>()
     private var activeTabIndex = 0
+    private val PREFS_NAME = "OpenBrData"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        
-        // Inisialisasi UI duluan biar gak null
-        initUI()
-        
-        // Load tab pertama setelah UI siap
-        webContainer.post {
-            createNewTab("https://www.google.com")
-        }
-    }
 
-    private fun initUI() {
+        // Inisialisasi semua View
         webContainer = findViewById(R.id.webview_container)
         searchLayer = findViewById(R.id.search_focus_layer)
         activityLayer = findViewById(R.id.activity_layer)
@@ -47,13 +45,19 @@ class MainActivity : AppCompatActivity() {
         urlInputReal = findViewById(R.id.url_input_real)
         progressBar = findViewById(R.id.progress_bar)
         tabCountText = findViewById(R.id.tab_count)
-        appBar = findViewById(R.id.app_bar_layout)
-        val swipeRefresh = findViewById<SwipeRefreshLayout>(R.id.swipe_refresh)
+        listHistorySearch = findViewById(R.id.list_history_search)
+        listActivityReal = findViewById(R.id.list_activity_real)
+        swipeRefresh = findViewById(R.id.swipe_refresh)
 
-        findViewById<View>(R.id.btn_home).setOnClickListener { 
-            if (tabsList.isNotEmpty()) tabsList[activeTabIndex].loadUrl("https://www.google.com")
+        initButtons()
+        createNewTab("https://www.google.com")
+    }
+
+    private fun initButtons() {
+        findViewById<View>(R.id.btn_home).setOnClickListener {
+            tabsList[activeTabIndex].loadUrl("https://www.google.com")
         }
-        
+
         findViewById<View>(R.id.btn_tabs).setOnClickListener {
             tabLayer.visibility = View.VISIBLE
             updateTabList()
@@ -61,8 +65,9 @@ class MainActivity : AppCompatActivity() {
 
         findViewById<View>(R.id.search_container_trigger).setOnClickListener {
             searchLayer.visibility = View.VISIBLE
+            showHistoryList(listHistorySearch, "history")
             urlInputReal.requestFocus()
-            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
             imm.showSoftInput(urlInputReal, 0)
         }
 
@@ -73,18 +78,23 @@ class MainActivity : AppCompatActivity() {
 
         urlInputReal.setOnEditorActionListener { v, _, _ ->
             val query = v.text.toString().trim()
-            if (query.isNotEmpty() && tabsList.isNotEmpty()) {
-                val url = if (query.contains(".") && !query.contains(" ")) "https://$query" else "https://www.google.com/search?q=$query"
+            if (query.isNotEmpty()) {
+                val url = if (query.contains(".") && !query.contains(" ")) {
+                    if (query.startsWith("http")) query else "https://$query"
+                } else {
+                    "https://www.google.com/search?q=$query"
+                }
+                saveData("history", query)
                 tabsList[activeTabIndex].loadUrl(url)
                 searchLayer.visibility = View.GONE
-                val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
                 imm.hideSoftInputFromWindow(v.windowToken, 0)
             }
             true
         }
 
-        swipeRefresh.setOnRefreshListener { 
-            if (tabsList.isNotEmpty()) tabsList[activeTabIndex].reload()
+        swipeRefresh.setOnRefreshListener {
+            tabsList[activeTabIndex].reload()
             swipeRefresh.isRefreshing = false
         }
     }
@@ -95,19 +105,31 @@ class MainActivity : AppCompatActivity() {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
             settings.databaseEnabled = true
-            
+            settings.setSupportMultipleWindows(true)
+
+            // FITUR DARK MODE WEBSITE
+            if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
+                val nightModeFlags = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+                if (nightModeFlags == Configuration.UI_MODE_NIGHT_YES) {
+                    WebSettingsCompat.setForceDark(settings, WebSettingsCompat.FORCE_DARK_ON)
+                } else {
+                    WebSettingsCompat.setForceDark(settings, WebSettingsCompat.FORCE_DARK_OFF)
+                }
+            }
+
             webChromeClient = object : WebChromeClient() {
                 override fun onProgressChanged(view: WebView?, p: Int) {
                     progressBar.progress = p
                     progressBar.visibility = if (p < 100) View.VISIBLE else View.GONE
                 }
-                override fun onReceivedIcon(view: WebView?, icon: Bitmap?) {
-                    icon?.let { applyDynamicColor(it) }
-                }
             }
+
             webViewClient = object : WebViewClient() {
                 override fun onPageFinished(view: WebView?, url: String?) {
-                    findViewById<TextView>(R.id.url_display_fake)?.text = view?.title ?: url
+                    findViewById<TextView>(R.id.url_display_fake).text = view?.title ?: url
+                    if (url != null && !url.contains("google.com/search")) {
+                        saveData("activity", "${view?.title ?: "Web"}|$url")
+                    }
                 }
             }
         }
@@ -117,7 +139,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun switchTab(index: Int) {
-        if (index < 0 || index >= tabsList.size) return
         activeTabIndex = index
         webContainer.removeAllViews()
         webContainer.addView(tabsList[index])
@@ -125,41 +146,58 @@ class MainActivity : AppCompatActivity() {
         tabLayer.visibility = View.GONE
     }
 
-    private fun applyDynamicColor(bitmap: Bitmap) {
-        try {
-            Palette.from(bitmap).generate { palette ->
-                val color = palette?.getDominantColor(Color.parseColor("#FFFFFF")) ?: return@generate
-                appBar.setBackgroundColor(color)
-                window.statusBarColor = color
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
+    private fun saveData(key: String, value: String) {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val dataSet = prefs.getStringSet(key, LinkedHashSet<String>()) ?: LinkedHashSet()
+        val newData = LinkedHashSet<String>(dataSet)
+        if (newData.size > 50) newData.remove(newData.first()) // Limit 50 data
+        newData.add(value)
+        prefs.edit().putStringSet(key, newData).apply()
+    }
+
+    private fun showHistoryList(listView: ListView, key: String) {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val rawData = prefs.getStringSet(key, setOf())?.toList()?.reversed() ?: listOf()
+        
+        val displayData = rawData.map { if (it.contains("|")) it.split("|")[0] else it }
+        
+        listView.adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, displayData)
+        listView.setOnItemClickListener { _, _, pos, _ ->
+            val selected = rawData[pos]
+            val url = if (selected.contains("|")) selected.split("|")[1] else "https://www.google.com/search?q=$selected"
+            tabsList[activeTabIndex].loadUrl(url)
+            searchLayer.visibility = View.GONE
+            activityLayer.visibility = View.GONE
         }
     }
 
     private fun updateTabList() {
-        val listView = findViewById<ListView>(R.id.list_tabs_preview)
         val titles = tabsList.map { it.title ?: "Tab Baru" }
-        val adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, titles)
-        listView.adapter = adapter
-        listView.setOnItemClickListener { _, _, position, _ -> switchTab(position) }
+        findViewById<ListView>(R.id.list_tabs_preview).adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, titles)
+        findViewById<ListView>(R.id.list_tabs_preview).setOnItemClickListener { _, _, pos, _ -> switchTab(pos) }
     }
 
     private fun showSettingsMenu(v: View) {
         val popup = PopupMenu(this, v)
-        popup.menu.add("Refresh")
-        popup.menu.add("Aktivitas")
-        popup.menu.add("Share")
+        popup.menu.add("Aktivitas Website")
+        popup.menu.add("Ganti Tema (Gelap/Terang)")
+        popup.menu.add("Share Link")
         popup.setOnMenuItemClickListener {
-            when(it.title) {
-                "Refresh" -> tabsList[activeTabIndex].reload()
-                "Aktivitas" -> activityLayer.visibility = View.VISIBLE
-                "Share" -> {
-                    val intent = Intent(Intent.ACTION_SEND).apply {
+            when (it.title) {
+                "Aktivitas Website" -> {
+                    activityLayer.visibility = View.VISIBLE
+                    showHistoryList(listActivityReal, "activity")
+                }
+                "Ganti Tema (Gelap/Terang)" -> {
+                    val isDark = AppCompatDelegate.getDefaultNightMode() == AppCompatDelegate.MODE_NIGHT_YES
+                    AppCompatDelegate.setDefaultNightMode(if (isDark) AppCompatDelegate.MODE_NIGHT_NO else AppCompatDelegate.MODE_NIGHT_YES)
+                }
+                "Share Link" -> {
+                    val i = Intent(Intent.ACTION_SEND).apply {
                         type = "text/plain"
                         putExtra(Intent.EXTRA_TEXT, tabsList[activeTabIndex].url)
                     }
-                    startActivity(Intent.createChooser(intent, "Share"))
+                    startActivity(Intent.createChooser(i, "Bagikan link"))
                 }
             }
             true
@@ -172,8 +210,9 @@ class MainActivity : AppCompatActivity() {
             tabLayer.visibility == View.VISIBLE -> tabLayer.visibility = View.GONE
             searchLayer.visibility == View.VISIBLE -> searchLayer.visibility = View.GONE
             activityLayer.visibility == View.VISIBLE -> activityLayer.visibility = View.GONE
-            tabsList.isNotEmpty() && tabsList[activeTabIndex].canGoBack() -> tabsList[activeTabIndex].goBack()
+            tabsList[activeTabIndex].canGoBack() -> tabsList[activeTabIndex].goBack()
             else -> super.onBackPressed()
         }
     }
 }
+

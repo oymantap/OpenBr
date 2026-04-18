@@ -30,8 +30,8 @@
                     android:layout_height="28dp"
                     android:layout_alignParentStart="true"
                     android:layout_centerVertical="true"
-                    android:src="@android:drawable/ic_menu_today"
-                    app:tint="#5F6368" />
+                    android:src="@android:drawable/ic_menu_home"
+                    app:tint="?android:attr/textColorSecondary" />
 
                 <LinearLayout
                     android:id="@+id/search_container_trigger"
@@ -49,8 +49,8 @@
                         android:id="@+id/url_display_fake"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Cari atau ketik URL..."
-                        android:textColor="#80868B"
+                        android:text="Cari..."
+                        android:textColor="?android:attr/textColorPrimary"
                         android:textSize="14sp"
                         android:singleLine="true"
                         android:ellipsize="end" />
@@ -76,7 +76,7 @@
                             android:layout_height="22dp"
                             android:layout_gravity="center"
                             android:src="@android:drawable/checkbox_off_background"
-                            app:tint="#5F6368" />
+                            app:tint="?android:attr/textColorSecondary" />
                         <TextView
                             android:id="@+id/tab_count"
                             android:layout_width="wrap_content"
@@ -85,7 +85,7 @@
                             android:text="1"
                             android:textSize="10sp"
                             android:textStyle="bold"
-                            android:textColor="#5F6368" />
+                            android:textColor="?android:attr/textColorSecondary" />
                     </FrameLayout>
 
                     <ImageButton
@@ -94,7 +94,7 @@
                         android:layout_height="32dp"
                         android:background="?attr/selectableItemBackgroundBorderless"
                         android:src="@android:drawable/ic_menu_more"
-                        app:tint="#5F6368" />
+                        app:tint="?android:attr/textColorSecondary" />
                 </LinearLayout>
             </RelativeLayout>
         </androidx.appcompat.widget.Toolbar>
@@ -135,8 +135,7 @@
             android:layout_width="match_parent"
             android:layout_height="64dp"
             android:gravity="center_vertical"
-            android:paddingHorizontal="8dp"
-            android:background="?android:attr/colorBackground">
+            android:paddingHorizontal="8dp">
 
             <ImageButton
                 android:id="@+id/btn_back_search"
@@ -144,7 +143,7 @@
                 android:layout_height="48dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:src="@android:drawable/ic_menu_revert"
-                app:tint="#5F6368" />
+                app:tint="?android:attr/textColorSecondary" />
 
             <EditText
                 android:id="@+id/url_input_real"
@@ -157,6 +156,7 @@
                 android:inputType="textUri"
                 android:paddingHorizontal="16dp"
                 android:singleLine="true"
+                android:textColor="?android:attr/textColorPrimary"
                 android:textSize="16sp" />
 
             <ImageButton
@@ -165,7 +165,7 @@
                 android:layout_height="48dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:src="@android:drawable/ic_menu_close_clear_cancel"
-                app:tint="#5F6368" />
+                app:tint="?android:attr/textColorSecondary" />
         </LinearLayout>
 
         <View
@@ -176,17 +176,17 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Riwayat Jelajah (.json)"
+            android:text="Riwayat Pencarian &amp; Aktivitas"
             android:textSize="12sp"
             android:textStyle="bold"
-            android:textColor="#80868B"
+            android:textColor="?android:attr/textColorSecondary"
             android:layout_margin="16dp" />
 
         <ListView
             android:id="@+id/list_history"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:divider="@null"
+            android:divider="?android:attr/listDivider"
             android:paddingHorizontal="8dp" />
     </LinearLayout>
 

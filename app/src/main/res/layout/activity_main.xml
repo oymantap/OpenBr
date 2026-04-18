@@ -9,8 +9,32 @@
         android:id="@+id/app_bar_layout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="#FFFFFF">
-        </com.google.android.material.appbar.AppBarLayout>
+        android:background="?android:attr/colorBackground"
+        app:elevation="0dp">
+        <androidx.appcompat.widget.Toolbar
+            android:layout_width="match_parent"
+            android:layout_height="72dp">
+            <RelativeLayout android:layout_width="match_parent" android:layout_height="match_parent">
+                <ImageView android:id="@+id/btn_home" android:layout_width="24dp" android:layout_height="24dp" android:layout_centerVertical="true" android:src="@drawable/ic_home_outline" />
+                <LinearLayout
+                    android:id="@+id/search_container_trigger"
+                    android:layout_width="match_parent" android:layout_height="46dp"
+                    android:layout_toEndOf="@id/btn_home" android:layout_toStartOf="@+id/right_buttons"
+                    android:layout_marginHorizontal="12dp" android:layout_centerVertical="true"
+                    android:background="@drawable/bg_search_modern" android:paddingHorizontal="16dp" android:gravity="center_vertical">
+                    <TextView android:id="@+id/url_display_fake" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Cari..." android:singleLine="true" />
+                </LinearLayout>
+                <LinearLayout android:id="@+id/right_buttons" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_alignParentEnd="true" android:layout_centerVertical="true">
+                    <FrameLayout android:id="@+id/btn_tabs" android:layout_width="32dp" android:layout_height="32dp">
+                        <View android:layout_width="20dp" android:layout_height="20dp" android:layout_gravity="center" android:background="@drawable/bg_tab_box" />
+                        <TextView android:id="@+id/tab_count" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center" android:text="1" android:textStyle="bold" />
+                    </FrameLayout>
+                    <ImageButton android:id="@+id/btn_more" android:layout_width="32dp" android:layout_height="32dp" android:src="@drawable/ic_more_vert" android:background="?selectableItemBackgroundBorderless" />
+                </LinearLayout>
+            </RelativeLayout>
+        </androidx.appcompat.widget.Toolbar>
+        <ProgressBar android:id="@+id/progress_bar" style="@android:style/Widget.ProgressBar.Horizontal" android:layout_width="match_parent" android:layout_height="4dp" android:progressDrawable="@drawable/custom_progress" android:indeterminateOnly="false" android:visibility="gone" />
+    </com.google.android.material.appbar.AppBarLayout>
 
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
         android:id="@+id/swipe_refresh"
@@ -20,14 +44,29 @@
         <FrameLayout android:id="@+id/webview_container" android:layout_width="match_parent" android:layout_height="match_parent" />
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
-    <LinearLayout android:id="@+id/tab_layer" android:layout_width="match_parent" android:layout_height="match_parent"
-        android:background="?android:attr/colorBackground" android:orientation="vertical" android:visibility="gone" android:elevation="30dp" android:clickable="true">
+    <LinearLayout android:id="@+id/search_focus_layer" android:layout_width="match_parent" android:layout_height="match_parent" android:background="?android:attr/colorBackground" android:orientation="vertical" android:visibility="gone" android:elevation="20dp" android:clickable="true">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="72dp" android:gravity="center_vertical" android:paddingHorizontal="16dp">
+            <ImageButton android:id="@+id/btn_back_search" android:layout_width="40dp" android:layout_height="40dp" android:src="@drawable/ic_arrow_back" android:background="?selectableItemBackground" />
+            <EditText android:id="@+id/url_input_real" android:layout_width="0dp" android:layout_height="46dp" android:layout_weight="1" android:background="@drawable/bg_search_modern" android:paddingHorizontal="16dp" android:hint="Cari..." android:singleLine="true"/>
+        </LinearLayout>
+        <ListView android:id="@+id/list_history_search" android:layout_width="match_parent" android:layout_height="match_parent" />
+    </LinearLayout>
+
+    <LinearLayout android:id="@+id/activity_layer" android:layout_width="match_parent" android:layout_height="match_parent" android:background="?android:attr/colorBackground" android:orientation="vertical" android:visibility="gone" android:elevation="25dp" android:clickable="true">
         <RelativeLayout android:layout_width="match_parent" android:layout_height="64dp" android:paddingHorizontal="16dp">
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Tab Aktif" android:textSize="18sp" android:textStyle="bold" android:layout_centerVertical="true" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Aktivitas Website" android:textStyle="bold" android:layout_centerVertical="true" />
+            <ImageButton android:id="@+id/btn_close_activity" android:layout_width="40dp" android:layout_height="40dp" android:layout_alignParentEnd="true" android:layout_centerVertical="true" android:src="@drawable/ic_close" android:background="?selectableItemBackgroundBorderless" />
+        </RelativeLayout>
+        <ListView android:id="@+id/list_activity_real" android:layout_width="match_parent" android:layout_height="match_parent" />
+    </LinearLayout>
+
+    <LinearLayout android:id="@+id/tab_layer" android:layout_width="match_parent" android:layout_height="match_parent" android:background="?android:attr/colorBackground" android:orientation="vertical" android:visibility="gone" android:elevation="30dp" android:clickable="true">
+        <RelativeLayout android:layout_width="match_parent" android:layout_height="64dp" android:paddingHorizontal="16dp">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Tab" android:textSize="18sp" android:textStyle="bold" android:layout_centerVertical="true" />
             <ImageButton android:id="@+id/btn_close_tab_layer" android:layout_width="40dp" android:layout_height="40dp" android:layout_alignParentEnd="true" android:layout_centerVertical="true" android:src="@drawable/ic_close" android:background="?selectableItemBackgroundBorderless" />
         </RelativeLayout>
         <ListView android:id="@+id/list_tabs_preview" android:layout_width="match_parent" android:layout_height="match_parent" />
     </LinearLayout>
 
-    </androidx.coordinatorlayout.widget.CoordinatorLayout>
-
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
+                        

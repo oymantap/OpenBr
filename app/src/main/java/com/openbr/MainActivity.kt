@@ -6,6 +6,7 @@ import android.content.res.Configuration
 import android.media.MediaMetadata
 import android.media.session.MediaSession
 import android.media.session.PlaybackState
+import android.net.Uri
 import android.os.Bundle
 import android.view.*
 import android.view.inputmethod.InputMethodManager
@@ -33,7 +34,8 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        setupMediaSession() // Inisialisasi Media Panel
+        // Init MediaSession supaya kontrol notif muncul saat muter video/musik
+        setupMediaSession()
 
         webView = findViewById(R.id.webview)
         searchLayer = findViewById(R.id.search_focus_layer)
@@ -47,19 +49,25 @@ class MainActivity : AppCompatActivity() {
             domStorageEnabled = true
             databaseEnabled = true
             allowFileAccess = true
-            mediaPlaybackRequiresUserGesture = false
+            allowContentAccess = true
+            mediaPlaybackRequiresUserGesture = false 
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-            userAgentString = "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36"
+            userAgentString = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36"
         }
+
+        webView.addJavascriptInterface(WebShareInterface(this), "AndroidShare")
 
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 progressBar.visibility = View.GONE
                 swipeRefresh.isRefreshing = false
                 findViewById<TextView>(R.id.url_display_fake).text = view?.title ?: url
-                updateMediaMetadata(view?.title ?: "Open Br", url ?: "")
+                
+                // Update Metadata Media saat halaman berubah
+                updateMediaInfo(view?.title ?: "Open Br", url ?: "")
                 url?.let { saveToData(it, view?.title ?: it, "visit") }
             }
+            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean = false
         }
 
         webView.webChromeClient = object : WebChromeClient() {
@@ -67,9 +75,11 @@ class MainActivity : AppCompatActivity() {
                 progressBar.progress = p
                 progressBar.visibility = if (p < 100) View.VISIBLE else View.GONE
             }
+            override fun onPermissionRequest(request: PermissionRequest) {
+                request.grant(request.resources)
+            }
         }
 
-        // --- BUTTONS LOGIC ---
         findViewById<ImageView>(R.id.btn_home).setOnClickListener { webView.loadUrl("https://www.google.com") }
 
         findViewById<View>(R.id.search_container_trigger).setOnClickListener {
@@ -81,13 +91,18 @@ class MainActivity : AppCompatActivity() {
         }
 
         findViewById<ImageButton>(R.id.btn_back_search).setOnClickListener { searchLayer.visibility = View.GONE }
+        findViewById<ImageButton>(R.id.btn_clear_text).setOnClickListener { urlInputReal.text.clear() }
 
         urlInputReal.setOnEditorActionListener { v, _, _ ->
             val query = v.text.toString().trim()
             if (query.isNotEmpty()) {
                 val isUrl = query.contains(".") && !query.contains(" ")
-                val url = if (isUrl) (if (query.startsWith("http")) query else "https://$query")
-                else { saveToData(query, query, "search"); "https://www.google.com/search?q=$query" }
+                val url = if (isUrl) {
+                    if (query.startsWith("http")) query else "https://$query"
+                } else {
+                    saveToData(query, query, "search")
+                    "https://www.google.com/search?q=$query"
+                }
                 webView.loadUrl(url)
                 searchLayer.visibility = View.GONE
                 (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(v.windowToken, 0)
@@ -95,61 +110,73 @@ class MainActivity : AppCompatActivity() {
             true
         }
 
-        findViewById<ImageButton>(R.id.btn_more).setOnClickListener { showMenu(it) }
+        findViewById<ImageButton>(R.id.btn_more).setOnClickListener { view ->
+            val popup = PopupMenu(this, view)
+            popup.menu.add("Refresh")
+            popup.menu.add("Dark Mode / Light Mode")
+            popup.menu.add("Bagikan")
+            popup.menu.add("Hapus Riwayat")
+            popup.setOnMenuItemClickListener {
+                when(it.title) {
+                    "Refresh" -> webView.reload()
+                    "Dark Mode / Light Mode" -> toggleTheme()
+                    "Bagikan" -> shareUrl()
+                    "Hapus Riwayat" -> { File(filesDir, historyFile).delete(); showDataList() }
+                }
+                true
+            }
+            popup.show()
+        }
+
         swipeRefresh.setOnRefreshListener { webView.reload() }
         ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO), 1)
         webView.loadUrl("https://www.google.com")
     }
 
-    // LOGIKA MEDIA PANEL NOTIFIKASI
     private fun setupMediaSession() {
-        mediaSession = MediaSession(this, "OpenBrMedia")
-        val state = PlaybackState.Builder()
-            .setActions(PlaybackState.ACTION_PLAY or PlaybackState.ACTION_PAUSE or PlaybackState.ACTION_SKIP_TO_NEXT or PlaybackState.ACTION_SKIP_TO_PREVIOUS)
-            .setState(PlaybackState.STATE_PLAYING, 0, 1.0f)
-            .build()
-        
-        mediaSession?.setPlaybackState(state)
-        mediaSession?.setCallback(object : MediaSession.Callback() {
-            override fun onPause() { webView.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PAUSE)) }
-            override fun onPlay() { webView.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY)) }
-        })
+        mediaSession = MediaSession(this, "OpenBrSession")
         mediaSession?.isActive = true
+        
+        val state = PlaybackState.Builder()
+            .setActions(PlaybackState.ACTION_PLAY or PlaybackState.ACTION_PAUSE or PlaybackState.ACTION_SKIP_TO_NEXT)
+            .setState(PlaybackState.STATE_PLAYING, PlaybackState.PLAYBACK_POSITION_UNKNOWN, 1.0f)
+            .build()
+        mediaSession?.setPlaybackState(state)
     }
 
-    private fun updateMediaMetadata(title: String, url: String) {
-        val metadata = MediaMetadata.Builder()
+    private fun updateMediaInfo(title: String, url: String) {
+        val meta = MediaMetadata.Builder()
             .putString(MediaMetadata.METADATA_KEY_TITLE, title)
             .putString(MediaMetadata.METADATA_KEY_ARTIST, "Open Br Browser")
             .build()
-        mediaSession?.setMetadata(metadata)
+        mediaSession?.setMetadata(meta)
     }
 
-    private fun showMenu(view: View) {
-        val popup = PopupMenu(this, view)
-        popup.menu.add("Dark Mode / Light Mode")
-        popup.menu.add("Refresh")
-        popup.menu.add("Hapus Riwayat")
-        popup.setOnMenuItemClickListener {
-            when(it.title) {
-                "Dark Mode / Light Mode" -> {
-                    val mode = if (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES) 
-                        AppCompatDelegate.MODE_NIGHT_NO else AppCompatDelegate.MODE_NIGHT_YES
-                    AppCompatDelegate.setDefaultNightMode(mode)
-                }
-                "Refresh" -> webView.reload()
-                "Hapus Riwayat" -> { File(filesDir, historyFile).delete(); showDataList() }
-            }
-            true
+    private fun toggleTheme() {
+        val currentMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+        val mode = if (currentMode == Configuration.UI_MODE_NIGHT_YES) 
+            AppCompatDelegate.MODE_NIGHT_NO else AppCompatDelegate.MODE_NIGHT_YES
+        AppCompatDelegate.setDefaultNightMode(mode)
+    }
+
+    private fun shareUrl() {
+        val i = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, webView.url)
         }
-        popup.show()
+        startActivity(Intent.createChooser(i, "Bagikan via Open Br"))
     }
 
     private fun saveToData(value: String, title: String, type: String) {
         try {
             val file = File(filesDir, historyFile)
             val json = if (file.exists()) JSONArray(file.readText()) else JSONArray()
-            val entry = JSONObject().apply { put("val", value); put("title", title); put("type", type) }
+            for (i in 0 until json.length()) {
+                if (json.getJSONObject(i).getString("val") == value) return
+            }
+            val entry = JSONObject().apply {
+                put("val", value); put("title", title); put("type", type); put("time", System.currentTimeMillis())
+            }
             json.put(entry)
             file.writeText(json.toString())
         } catch (e: Exception) {}
@@ -161,24 +188,40 @@ class MainActivity : AppCompatActivity() {
             if (!file.exists()) { listHistory.adapter = null; return }
             val json = JSONArray(file.readText())
             val items = mutableListOf<String>()
-            val values = mutableListOf<String>()
+            val rawValues = mutableListOf<String>()
             for (i in (json.length() - 1) downTo 0) {
                 val obj = json.getJSONObject(i)
-                items.add(if (obj.getString("type") == "search") "🔍 ${obj.getString("val")}" else "🌐 ${obj.getString("title")}")
-                values.add(obj.getString("val"))
+                val type = obj.getString("type")
+                val label = if (type == "search") "🔍 ${obj.getString("val")}" else "🌐 ${obj.getString("title")}"
+                items.add(label)
+                rawValues.add(obj.getString("val"))
             }
-            listHistory.adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, items.distinct())
+            listHistory.adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, items.distinct().take(20))
             listHistory.setOnItemClickListener { _, _, pos, _ ->
-                val target = values[pos]
-                webView.loadUrl(if (target.startsWith("http")) target else "https://google.com/search?q=$target")
+                val target = rawValues[pos]
+                webView.loadUrl(if (target.startsWith("http")) target else "https://www.google.com/search?q=$target")
                 searchLayer.visibility = View.GONE
             }
         } catch (e: Exception) {}
     }
 
+    class WebShareInterface(private val context: Context) {
+        @JavascriptInterface
+        fun share(t: String, txt: String, u: String) {
+            val i = Intent(Intent.ACTION_SEND).apply { type="text/plain"; putExtra(Intent.EXTRA_TEXT, "$txt\n$u") }
+            context.startActivity(Intent.createChooser(i, "Share"))
+        }
+    }
+
     override fun onDestroy() {
         mediaSession?.release()
         super.onDestroy()
+    }
+
+    override fun onBackPressed() {
+        if (searchLayer.visibility == View.VISIBLE) searchLayer.visibility = View.GONE
+        else if (webView.canGoBack()) webView.goBack()
+        else super.onBackPressed()
     }
 }
 

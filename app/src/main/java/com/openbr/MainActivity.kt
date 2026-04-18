@@ -3,9 +3,11 @@ package com.openbr
 import android.Manifest
 import android.content.*
 import android.content.res.Configuration
+import android.graphics.Color
 import android.media.MediaMetadata
 import android.media.session.MediaSession
 import android.media.session.PlaybackState
+import android.net.Uri
 import android.os.Bundle
 import android.view.*
 import android.view.inputmethod.InputMethodManager
@@ -27,16 +29,20 @@ class MainActivity : AppCompatActivity() {
     private lateinit var progressBar: ProgressBar
     private lateinit var listHistory: ListView
     private lateinit var mediaSession: MediaSession
-    private val historyFile = "openbr_data.json"
+    private val dataFile = "openbr_master.json"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // MEDIA SESSION (Panel Notif)
-        mediaSession = MediaSession(this, "OpenBrSession")
-        mediaSession.isActive = true
+        setupMediaSession()
+        initUI()
+        
+        // Handle Open File dari luar (ZArchiver dll)
+        intent?.data?.let { handleIncomingUri(it) }
+    }
 
+    private fun initUI() {
         webView = findViewById(R.id.webview)
         searchLayer = findViewById(R.id.search_focus_layer)
         urlInputReal = findViewById(R.id.url_input_real)
@@ -47,15 +53,17 @@ class MainActivity : AppCompatActivity() {
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
-            databaseEnabled = true
             allowFileAccess = true
             allowContentAccess = true
             mediaPlaybackRequiresUserGesture = false
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-            userAgentString = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36"
+            // Force Dark Mode untuk konten Website
+            if (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES) {
+                if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
+                    WebSettingsCompat.setForceDark(this, WebSettingsCompat.FORCE_DARK_ON)
+                }
+            }
         }
-
-        webView.addJavascriptInterface(WebShareInterface(this), "AndroidShare")
 
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
@@ -63,15 +71,10 @@ class MainActivity : AppCompatActivity() {
                 swipeRefresh.isRefreshing = false
                 findViewById<TextView>(R.id.url_display_fake).text = view?.title ?: url
                 
-                // Sinkron Media Notif
-                val metadata = MediaMetadata.Builder()
-                    .putString(MediaMetadata.METADATA_KEY_TITLE, view?.title ?: "Open Br")
-                    .build()
-                mediaSession.setMetadata(metadata)
-                
-                url?.let { saveToData(it, view?.title ?: it, "visit") }
+                // Simpan sebagai Aktivitas Website (Bukan Pencarian)
+                url?.let { saveMasterData(it, view?.title ?: it, "activity", view?.favicon) }
+                updateMediaMetadata(view?.title ?: "Open Br")
             }
-            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean = false
         }
 
         webView.webChromeClient = object : WebChromeClient() {
@@ -81,111 +84,78 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // NAVIGATION
-        findViewById<ImageView>(R.id.btn_home).setOnClickListener { webView.loadUrl("https://www.google.com") }
-
         findViewById<View>(R.id.search_container_trigger).setOnClickListener {
             searchLayer.visibility = View.VISIBLE
-            showDataList()
+            showMasterData()
             urlInputReal.requestFocus()
-            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-            imm.showSoftInput(urlInputReal, 0)
         }
-
-        findViewById<ImageButton>(R.id.btn_back_search).setOnClickListener { searchLayer.visibility = View.GONE }
-        findViewById<ImageButton>(R.id.btn_clear_text).setOnClickListener { urlInputReal.text.clear() }
 
         urlInputReal.setOnEditorActionListener { v, _, _ ->
             val query = v.text.toString().trim()
             if (query.isNotEmpty()) {
                 val url = when {
                     query.startsWith("http") || query.startsWith("file://") -> query
-                    query.contains(".") && !query.contains(" ") -> "https://$query"
                     query.contains("localhost") -> "http://$query"
+                    query.contains(".") && !query.contains(" ") -> "https://$query"
                     else -> {
-                        saveToData(query, query, "search")
+                        saveMasterData(query, "Pencarian Google", "search", null)
                         "https://www.google.com/search?q=$query"
                     }
                 }
                 webView.loadUrl(url)
                 searchLayer.visibility = View.GONE
-                (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(v.windowToken, 0)
             }
             true
         }
-
-        findViewById<ImageButton>(R.id.btn_more).setOnClickListener { view ->
-            val popup = PopupMenu(this, view)
-            popup.menu.add("Refresh")
-            popup.menu.add("Dark Mode / Light Mode")
-            popup.menu.add("Bagikan")
-            popup.menu.add("Hapus Riwayat")
-            popup.setOnMenuItemClickListener {
-                when(it.title) {
-                    "Refresh" -> webView.reload()
-                    "Dark Mode / Light Mode" -> {
-                        val mode = if (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES) 
-                            AppCompatDelegate.MODE_NIGHT_NO else AppCompatDelegate.MODE_NIGHT_YES
-                        AppCompatDelegate.setDefaultNightMode(mode)
-                    }
-                    "Bagikan" -> {
-                        val i = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, webView.url) }
-                        startActivity(Intent.createChooser(i, "Share"))
-                    }
-                    "Hapus Riwayat" -> { File(filesDir, historyFile).delete(); showDataList() }
-                }
-                true
-            }
-            popup.show()
-        }
-
-        swipeRefresh.setOnRefreshListener { webView.reload() }
-        ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO), 1)
-        webView.loadUrl("https://www.google.com")
     }
 
-    private fun saveToData(value: String, title: String, type: String) {
+    private fun handleIncomingUri(uri: Uri) {
+        webView.loadUrl(uri.toString())
+    }
+
+    private fun setupMediaSession() {
+        mediaSession = MediaSession(this, "OpenBrMedia")
+        mediaSession.setCallback(object : MediaSession.Callback() {
+            override fun onPlay() { webView.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY)) }
+            override fun onPause() { webView.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PAUSE)) }
+        })
+        val state = PlaybackState.Builder()
+            .setActions(PlaybackState.ACTION_PLAY or PlaybackState.ACTION_PAUSE or PlaybackState.ACTION_SKIP_TO_NEXT)
+            .setState(PlaybackState.STATE_PLAYING, 0, 1.0f).build()
+        mediaSession.setPlaybackState(state)
+        mediaSession.isActive = true
+    }
+
+    private fun updateMediaMetadata(title: String) {
+        val meta = MediaMetadata.Builder().putString(MediaMetadata.METADATA_KEY_TITLE, title).build()
+        mediaSession.setMetadata(meta)
+    }
+
+    private fun saveMasterData(valStr: String, title: String, type: String, favicon: Any?) {
         try {
-            val file = File(filesDir, historyFile)
+            val file = File(filesDir, dataFile)
             val json = if (file.exists()) JSONArray(file.readText()) else JSONArray()
-            val entry = JSONObject().apply { put("val", value); put("title", title); put("type", type) }
-            json.put(entry)
+            val obj = JSONObject().apply {
+                put("val", valStr); put("title", title); put("type", type); put("time", System.currentTimeMillis())
+            }
+            json.put(obj)
             file.writeText(json.toString())
         } catch (e: Exception) {}
     }
 
-    private fun showDataList() {
+    private fun showMasterData() {
         try {
-            val file = File(filesDir, historyFile)
-            if (!file.exists()) { listHistory.adapter = null; return }
+            val file = File(filesDir, dataFile)
+            if (!file.exists()) return
             val json = JSONArray(file.readText())
             val items = mutableListOf<String>()
-            val raw = mutableListOf<String>()
             for (i in (json.length() - 1) downTo 0) {
                 val obj = json.getJSONObject(i)
-                items.add(if (obj.getString("type") == "search") "🔍 ${obj.getString("val")}" else "🌐 ${obj.getString("title")}")
-                raw.add(obj.getString("val"))
+                val prefix = if (obj.getString("type") == "search") "🔍" else "🌐"
+                items.add("$prefix ${obj.getString("title")}\n${obj.getString("val")}")
             }
-            listHistory.adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, items.distinct())
-            listHistory.setOnItemClickListener { _, _, pos, _ ->
-                webView.loadUrl(if (raw[pos].startsWith("http")) raw[pos] else "https://google.com/search?q=${raw[pos]}")
-                searchLayer.visibility = View.GONE
-            }
+            listHistory.adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, items.distinct().take(30))
         } catch (e: Exception) {}
-    }
-
-    class WebShareInterface(private val context: Context) {
-        @JavascriptInterface fun share(t: String, txt: String, u: String) {
-            val i = Intent(Intent.ACTION_SEND).apply { type="text/plain"; putExtra(Intent.EXTRA_TEXT, "$txt\n$u") }
-            context.startActivity(Intent.createChooser(i, "Share"))
-        }
-    }
-
-    override fun onDestroy() { super.onDestroy(); mediaSession.release() }
-    override fun onBackPressed() {
-        if (searchLayer.visibility == View.VISIBLE) searchLayer.visibility = View.GONE
-        else if (webView.canGoBack()) webView.goBack()
-        else super.onBackPressed()
     }
 }
 

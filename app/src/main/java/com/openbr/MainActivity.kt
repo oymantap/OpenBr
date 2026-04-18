@@ -29,8 +29,14 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        
+        // Inisialisasi UI duluan biar gak null
         initUI()
-        createNewTab("https://www.google.com")
+        
+        // Load tab pertama setelah UI siap
+        webContainer.post {
+            createNewTab("https://www.google.com")
+        }
     }
 
     private fun initUI() {
@@ -44,7 +50,9 @@ class MainActivity : AppCompatActivity() {
         appBar = findViewById(R.id.app_bar_layout)
         val swipeRefresh = findViewById<SwipeRefreshLayout>(R.id.swipe_refresh)
 
-        findViewById<View>(R.id.btn_home).setOnClickListener { createNewTab("https://www.google.com") }
+        findViewById<View>(R.id.btn_home).setOnClickListener { 
+            if (tabsList.isNotEmpty()) tabsList[activeTabIndex].loadUrl("https://www.google.com")
+        }
         
         findViewById<View>(R.id.btn_tabs).setOnClickListener {
             tabLayer.visibility = View.VISIBLE
@@ -65,16 +73,18 @@ class MainActivity : AppCompatActivity() {
 
         urlInputReal.setOnEditorActionListener { v, _, _ ->
             val query = v.text.toString().trim()
-            val url = if (query.contains(".") && !query.contains(" ")) "https://$query" else "https://www.google.com/search?q=$query"
-            tabsList[activeTabIndex].loadUrl(url)
-            searchLayer.visibility = View.GONE
-            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-            imm.hideSoftInputFromWindow(v.windowToken, 0)
+            if (query.isNotEmpty() && tabsList.isNotEmpty()) {
+                val url = if (query.contains(".") && !query.contains(" ")) "https://$query" else "https://www.google.com/search?q=$query"
+                tabsList[activeTabIndex].loadUrl(url)
+                searchLayer.visibility = View.GONE
+                val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                imm.hideSoftInputFromWindow(v.windowToken, 0)
+            }
             true
         }
 
         swipeRefresh.setOnRefreshListener { 
-            tabsList[activeTabIndex].reload()
+            if (tabsList.isNotEmpty()) tabsList[activeTabIndex].reload()
             swipeRefresh.isRefreshing = false
         }
     }
@@ -84,6 +94,7 @@ class MainActivity : AppCompatActivity() {
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
+            settings.databaseEnabled = true
             
             webChromeClient = object : WebChromeClient() {
                 override fun onProgressChanged(view: WebView?, p: Int) {
@@ -96,7 +107,7 @@ class MainActivity : AppCompatActivity() {
             }
             webViewClient = object : WebViewClient() {
                 override fun onPageFinished(view: WebView?, url: String?) {
-                    findViewById<TextView>(R.id.url_display_fake).text = view?.title ?: url
+                    findViewById<TextView>(R.id.url_display_fake)?.text = view?.title ?: url
                 }
             }
         }
@@ -106,6 +117,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun switchTab(index: Int) {
+        if (index < 0 || index >= tabsList.size) return
         activeTabIndex = index
         webContainer.removeAllViews()
         webContainer.addView(tabsList[index])
@@ -114,22 +126,21 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun applyDynamicColor(bitmap: Bitmap) {
-        Palette.from(bitmap).generate { palette ->
-            val color = palette?.getDominantColor(Color.parseColor("#FFFFFF")) ?: return@generate
-            appBar.setBackgroundColor(color)
-            window.statusBarColor = color
+        try {
+            Palette.from(bitmap).generate { palette ->
+                val color = palette?.getDominantColor(Color.parseColor("#FFFFFF")) ?: return@generate
+                appBar.setBackgroundColor(color)
+                window.statusBarColor = color
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
     private fun updateTabList() {
         val listView = findViewById<ListView>(R.id.list_tabs_preview)
-        val adapter = object : ArrayAdapter<WebView>(this, android.R.layout.simple_list_item_1, tabsList) {
-            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
-                val view = super.getView(position, convertView, parent) as TextView
-                view.text = tabsList[position].title ?: "New Tab"
-                return view
-            }
-        }
+        val titles = tabsList.map { it.title ?: "Tab Baru" }
+        val adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, titles)
         listView.adapter = adapter
         listView.setOnItemClickListener { _, _, position, _ -> switchTab(position) }
     }
@@ -148,7 +159,7 @@ class MainActivity : AppCompatActivity() {
                         type = "text/plain"
                         putExtra(Intent.EXTRA_TEXT, tabsList[activeTabIndex].url)
                     }
-                    startActivity(Intent.createChooser(intent, "Share via Open Br"))
+                    startActivity(Intent.createChooser(intent, "Share"))
                 }
             }
             true
@@ -157,11 +168,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onBackPressed() {
-        if (tabLayer.visibility == View.VISIBLE) tabLayer.visibility = View.GONE
-        else if (searchLayer.visibility == View.VISIBLE) searchLayer.visibility = View.GONE
-        else if (activityLayer.visibility == View.VISIBLE) activityLayer.visibility = View.GONE
-        else if (tabsList[activeTabIndex].canGoBack()) tabsList[activeTabIndex].goBack()
-        else super.onBackPressed()
+        when {
+            tabLayer.visibility == View.VISIBLE -> tabLayer.visibility = View.GONE
+            searchLayer.visibility == View.VISIBLE -> searchLayer.visibility = View.GONE
+            activityLayer.visibility == View.VISIBLE -> activityLayer.visibility = View.GONE
+            tabsList.isNotEmpty() && tabsList[activeTabIndex].canGoBack() -> tabsList[activeTabIndex].goBack()
+            else -> super.onBackPressed()
+        }
     }
 }
-

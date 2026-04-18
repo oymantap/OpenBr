@@ -18,7 +18,6 @@
             app:contentInsetStart="0dp">
 
             <RelativeLayout android:layout_width="match_parent" android:layout_height="match_parent" android:paddingHorizontal="16dp">
-
                 <ImageView
                     android:id="@+id/btn_home"
                     android:layout_width="24dp"
@@ -34,7 +33,7 @@
                     android:layout_centerVertical="true"
                     android:layout_toEndOf="@id/btn_home"
                     android:layout_toStartOf="@+id/right_buttons"
-                    android:layout_marginHorizontal="16dp"
+                    android:layout_marginHorizontal="12dp"
                     android:background="@drawable/bg_search_modern"
                     android:gravity="center_vertical"
                     android:paddingHorizontal="16dp">
@@ -49,63 +48,29 @@
                 </LinearLayout>
 
                 <LinearLayout
-    android:id="@+id/activity_layer"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="?android:attr/colorBackground"
-    android:orientation="vertical"
-    android:visibility="gone"
-    android:elevation="26dp"
-    android:clickable="true">
-    
-    <androidx.appcompat.widget.Toolbar
-        android:layout_width="match_parent"
-        android:layout_height="64dp"
-        app:title="Aktivitas Website"
-        app:navigationIcon="@drawable/ic_close">
-        <ImageButton
-            android:id="@+id/btn_close_activity"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:background="?selectableItemBackgroundBorderless"
-            android:src="@drawable/ic_close"
-            android:layout_gravity="end" />
-    </androidx.appcompat.widget.Toolbar>
-    
-    <ListView 
-        android:id="@+id/list_activity_real" 
-        android:layout_width="match_parent" 
-        android:layout_height="match_parent" 
-        android:dividerHeight="1dp" />
-</LinearLayout>
-
-                <LinearLayout
                     android:id="@+id/right_buttons"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_alignParentEnd="true"
                     android:layout_centerVertical="true"
                     android:orientation="horizontal">
-
                     <FrameLayout android:id="@+id/btn_tabs" android:layout_width="32dp" android:layout_height="32dp" android:layout_marginEnd="8dp">
                         <View android:layout_width="20dp" android:layout_height="20dp" android:layout_gravity="center" android:background="@drawable/bg_tab_box" />
                         <TextView android:id="@+id/tab_count" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center" android:text="1" android:textColor="?android:attr/textColorPrimary" android:textSize="10sp" android:textStyle="bold" />
                     </FrameLayout>
-
                     <ImageButton android:id="@+id/btn_more" android:layout_width="32dp" android:layout_height="32dp" android:background="?selectableItemBackgroundBorderless" android:src="@drawable/ic_more_vert" app:tint="?android:attr/textColorPrimary" />
                 </LinearLayout>
             </RelativeLayout>
         </androidx.appcompat.widget.Toolbar>
 
         <ProgressBar
-    android:id="@+id/progress_bar"
-    style="@android:style/Widget.ProgressBar.Horizontal"
-    android:layout_width="match_parent"
-    android:layout_height="4dp"
-    android:progressDrawable="@drawable/custom_progress"
-    android:indeterminateOnly="false"
-    android:visibility="gone" />
-        
+            android:id="@+id/progress_bar"
+            style="@android:style/Widget.ProgressBar.Horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="4dp"
+            android:progressDrawable="@drawable/custom_progress"
+            android:indeterminateOnly="false"
+            android:visibility="gone" />
     </com.google.android.material.appbar.AppBarLayout>
 
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
@@ -125,13 +90,29 @@
         android:visibility="gone"
         android:elevation="20dp"
         android:clickable="true">
-        
         <LinearLayout android:layout_width="match_parent" android:layout_height="72dp" android:gravity="center_vertical" android:paddingHorizontal="16dp">
             <ImageButton android:id="@+id/btn_back_search" android:layout_width="40dp" android:layout_height="40dp" android:src="@drawable/ic_arrow_back" android:background="?selectableItemBackground" app:tint="?android:attr/textColorPrimary" />
-            <EditText android:id="@+id/url_input_real" android:layout_width="0dp" android:layout_height="46dp" android:layout_weight="1" android:background="@drawable/bg_search_modern" android:paddingHorizontal="16dp" android:hint="Cari..." android:textColor="?android:attr/textColorPrimary" android:singleLine="true"/>
+            <EditText android:id="@+id/url_input_real" android:layout_width="0dp" android:layout_height="46dp" android:layout_weight="1" android:background="@drawable/bg_search_modern" android:paddingHorizontal="16dp" android:hint="Ketik URL atau cari..." android:textColor="?android:attr/textColorPrimary" android:singleLine="true"/>
             <ImageButton android:id="@+id/btn_clear_text" android:layout_width="40dp" android:layout_height="40dp" android:src="@drawable/ic_close" android:background="?selectableItemBackground" app:tint="?android:attr/textColorSecondary" />
         </LinearLayout>
         <ListView android:id="@+id/list_history" android:layout_width="match_parent" android:layout_height="match_parent" android:divider="@null" />
     </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/activity_layer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="?android:attr/colorBackground"
+        android:orientation="vertical"
+        android:visibility="gone"
+        android:elevation="25dp"
+        android:clickable="true">
+        <RelativeLayout android:layout_width="match_parent" android:layout_height="64dp" android:paddingHorizontal="16dp">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Aktivitas Website" android:textSize="18sp" android:textStyle="bold" android:layout_centerVertical="true" />
+            <ImageButton android:id="@+id/btn_close_activity" android:layout_width="40dp" android:layout_height="40dp" android:layout_alignParentEnd="true" android:layout_centerVertical="true" android:src="@drawable/ic_close" android:background="?selectableItemBackgroundBorderless" />
+        </RelativeLayout>
+        <ListView android:id="@+id/list_activity_real" android:layout_width="match_parent" android:layout_height="match_parent" />
+    </LinearLayout>
+
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
-            
+                

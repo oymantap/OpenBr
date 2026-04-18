@@ -26,7 +26,6 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // Binding UI - Pastikan ID di XML cocok!
         webView = findViewById(R.id.webview)
         searchLayer = findViewById(R.id.search_focus_layer)
         urlDisplayFake = findViewById(R.id.url_display_fake)
@@ -39,7 +38,6 @@ class MainActivity : AppCompatActivity() {
         val btnBackSearch = findViewById<ImageButton>(R.id.btn_back_search)
         val btnMore = findViewById<ImageButton>(R.id.btn_more)
 
-        // --- ENGINE SETTINGS ---
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
@@ -48,13 +46,18 @@ class MainActivity : AppCompatActivity() {
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
             userAgentString = "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Mobile Safari/537.36"
             
-            // DARK MODE (Karena Gradle udah lu benerin)
             if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
                 WebSettingsCompat.setForceDark(this, WebSettingsCompat.FORCE_DARK_AUTO)
             }
         }
 
         webView.webViewClient = object : WebViewClient() {
+            // FIX: Biar nggak mental ke browser luar atau stuck
+            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                view?.loadUrl(request?.url.toString())
+                return true
+            }
+
             override fun onPageFinished(view: WebView?, url: String?) {
                 progressBar.visibility = View.GONE
                 swipeRefresh.isRefreshing = false
@@ -68,12 +71,10 @@ class MainActivity : AppCompatActivity() {
                 progressBar.visibility = if (newProgress < 100) View.VISIBLE else View.GONE
             }
             override fun onPermissionRequest(request: PermissionRequest) {
-                request.grant(request.resources) // Fix Izin Kamera/Mic di Web
+                request.grant(request.resources)
             }
         }
 
-        // --- FIX TOMBOL & NAVIGASI ---
-        
         btnHome.setOnClickListener { webView.loadUrl("https://www.google.com") }
 
         findViewById<View>(R.id.search_container_trigger).setOnClickListener {
@@ -98,8 +99,11 @@ class MainActivity : AppCompatActivity() {
                 val url = if (query.contains(".") && !query.contains(" ")) {
                     if (query.startsWith("http")) query else "https://$query"
                 } else "https://www.google.com/search?q=$query"
+                
                 webView.loadUrl(url)
                 searchLayer.visibility = View.GONE
+                val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                imm.hideSoftInputFromWindow(v.windowToken, 0)
             }
             true
         }
@@ -115,7 +119,7 @@ class MainActivity : AppCompatActivity() {
                         putExtra(Intent.EXTRA_TEXT, webView.url)
                     }
                     startActivity(Intent.createChooser(i, "Share"))
-                } else { webView.reload() }
+                } else webView.reload()
                 true
             }
             popup.show()
@@ -127,15 +131,21 @@ class MainActivity : AppCompatActivity() {
 
         swipeRefresh.setOnRefreshListener { webView.reload() }
 
-        // Minta Izin Media/Kamera
         ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO), 1)
-
-        webView.loadUrl("https://www.google.com")
+        
+        if (webView.url == null) {
+            webView.loadUrl("https://www.google.com")
+        }
     }
 
     override fun onBackPressed() {
-        if (searchLayer.visibility == View.VISIBLE) searchLayer.visibility = View.GONE
-        else if (webView.canGoBack()) webView.goBack()
-        else super.onBackPressed()
+        if (searchLayer.visibility == View.VISIBLE) {
+            searchLayer.visibility = View.GONE
+        } else if (webView.canGoBack()) {
+            webView.goBack()
+        } else {
+            super.onBackPressed()
+        }
     }
 }
+

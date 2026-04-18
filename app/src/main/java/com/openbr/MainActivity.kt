@@ -3,7 +3,6 @@ package com.openbr
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
-import android.graphics.Bitmap
 import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
@@ -25,19 +24,18 @@ class MainActivity : AppCompatActivity() {
     private lateinit var urlInputReal: EditText
     private lateinit var progressBar: ProgressBar
     private lateinit var tabCountText: TextView
-    private lateinit var listHistorySearch: ListView
-    private lateinit var listActivityReal: ListView
     private lateinit var swipeRefresh: SwipeRefreshLayout
+    private lateinit var urlDisplayFake: TextView
 
     private val tabsList = mutableListOf<WebView>()
-    private var activeTabIndex = 0
-    private val PREFS_NAME = "OpenBrData"
+    private var activeTabIndex = -1
+    private val PREFS_NAME = "OpenBrData_Official"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // Inisialisasi semua View
+        // Inisialisasi UI
         webContainer = findViewById(R.id.webview_container)
         searchLayer = findViewById(R.id.search_focus_layer)
         activityLayer = findViewById(R.id.activity_layer)
@@ -45,17 +43,20 @@ class MainActivity : AppCompatActivity() {
         urlInputReal = findViewById(R.id.url_input_real)
         progressBar = findViewById(R.id.progress_bar)
         tabCountText = findViewById(R.id.tab_count)
-        listHistorySearch = findViewById(R.id.list_history_search)
-        listActivityReal = findViewById(R.id.list_activity_real)
         swipeRefresh = findViewById(R.id.swipe_refresh)
+        urlDisplayFake = findViewById(R.id.url_display_fake)
 
-        initButtons()
-        createNewTab("https://www.google.com")
+        initListeners()
+        
+        // Load Awal
+        webContainer.post {
+            createNewTab("https://www.google.com")
+        }
     }
 
-    private fun initButtons() {
+    private fun initListeners() {
         findViewById<View>(R.id.btn_home).setOnClickListener {
-            tabsList[activeTabIndex].loadUrl("https://www.google.com")
+            if (activeTabIndex >= 0) tabsList[activeTabIndex].loadUrl("https://www.google.com")
         }
 
         findViewById<View>(R.id.btn_tabs).setOnClickListener {
@@ -65,7 +66,7 @@ class MainActivity : AppCompatActivity() {
 
         findViewById<View>(R.id.search_container_trigger).setOnClickListener {
             searchLayer.visibility = View.VISIBLE
-            showHistoryList(listHistorySearch, "history")
+            showHistoryList(findViewById(R.id.list_history_search), "history")
             urlInputReal.requestFocus()
             val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
             imm.showSoftInput(urlInputReal, 0)
@@ -78,7 +79,7 @@ class MainActivity : AppCompatActivity() {
 
         urlInputReal.setOnEditorActionListener { v, _, _ ->
             val query = v.text.toString().trim()
-            if (query.isNotEmpty()) {
+            if (query.isNotEmpty() && activeTabIndex >= 0) {
                 val url = if (query.contains(".") && !query.contains(" ")) {
                     if (query.startsWith("http")) query else "https://$query"
                 } else {
@@ -93,8 +94,11 @@ class MainActivity : AppCompatActivity() {
             true
         }
 
+        // FIX SWIPE REFRESH AGAR TIDAK GANGGU SCROLL
         swipeRefresh.setOnRefreshListener {
-            tabsList[activeTabIndex].reload()
+            if (activeTabIndex >= 0) {
+                tabsList[activeTabIndex].reload()
+            }
             swipeRefresh.isRefreshing = false
         }
     }
@@ -104,17 +108,15 @@ class MainActivity : AppCompatActivity() {
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
-            settings.databaseEnabled = true
-            settings.setSupportMultipleWindows(true)
+            
+            // Logic Anti-Bentrok SwipeRefresh
+            viewTreeObserver.addOnScrollChangedListener {
+                swipeRefresh.isEnabled = scrollY == 0
+            }
 
-            // FITUR DARK MODE WEBSITE
             if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
-                val nightModeFlags = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
-                if (nightModeFlags == Configuration.UI_MODE_NIGHT_YES) {
-                    WebSettingsCompat.setForceDark(settings, WebSettingsCompat.FORCE_DARK_ON)
-                } else {
-                    WebSettingsCompat.setForceDark(settings, WebSettingsCompat.FORCE_DARK_OFF)
-                }
+                val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+                WebSettingsCompat.setForceDark(settings, if (isDark) WebSettingsCompat.FORCE_DARK_ON else WebSettingsCompat.FORCE_DARK_OFF)
             }
 
             webChromeClient = object : WebChromeClient() {
@@ -126,7 +128,7 @@ class MainActivity : AppCompatActivity() {
 
             webViewClient = object : WebViewClient() {
                 override fun onPageFinished(view: WebView?, url: String?) {
-                    findViewById<TextView>(R.id.url_display_fake).text = view?.title ?: url
+                    urlDisplayFake.text = view?.title ?: url
                     if (url != null && !url.contains("google.com/search")) {
                         saveData("activity", "${view?.title ?: "Web"}|$url")
                     }
@@ -139,18 +141,21 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun switchTab(index: Int) {
+        if (index < 0 || index >= tabsList.size) return
         activeTabIndex = index
         webContainer.removeAllViews()
         webContainer.addView(tabsList[index])
         tabCountText.text = tabsList.size.toString()
         tabLayer.visibility = View.GONE
+        // Reset state refresh saat ganti tab
+        swipeRefresh.isEnabled = tabsList[index].scrollY == 0
     }
 
     private fun saveData(key: String, value: String) {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val dataSet = prefs.getStringSet(key, LinkedHashSet<String>()) ?: LinkedHashSet()
+        val dataSet = prefs.getStringSet(key, linkedSetOf()) ?: linkedSetOf()
         val newData = LinkedHashSet<String>(dataSet)
-        if (newData.size > 50) newData.remove(newData.first()) // Limit 50 data
+        newData.remove(value) 
         newData.add(value)
         prefs.edit().putStringSet(key, newData).apply()
     }
@@ -158,16 +163,17 @@ class MainActivity : AppCompatActivity() {
     private fun showHistoryList(listView: ListView, key: String) {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val rawData = prefs.getStringSet(key, setOf())?.toList()?.reversed() ?: listOf()
-        
         val displayData = rawData.map { if (it.contains("|")) it.split("|")[0] else it }
         
         listView.adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, displayData)
         listView.setOnItemClickListener { _, _, pos, _ ->
             val selected = rawData[pos]
             val url = if (selected.contains("|")) selected.split("|")[1] else "https://www.google.com/search?q=$selected"
-            tabsList[activeTabIndex].loadUrl(url)
-            searchLayer.visibility = View.GONE
-            activityLayer.visibility = View.GONE
+            if (activeTabIndex >= 0) {
+                tabsList[activeTabIndex].loadUrl(url)
+                searchLayer.visibility = View.GONE
+                activityLayer.visibility = View.GONE
+            }
         }
     }
 
@@ -180,24 +186,16 @@ class MainActivity : AppCompatActivity() {
     private fun showSettingsMenu(v: View) {
         val popup = PopupMenu(this, v)
         popup.menu.add("Aktivitas Website")
-        popup.menu.add("Ganti Tema (Gelap/Terang)")
-        popup.menu.add("Share Link")
+        popup.menu.add("Ganti Tema")
         popup.setOnMenuItemClickListener {
             when (it.title) {
                 "Aktivitas Website" -> {
                     activityLayer.visibility = View.VISIBLE
-                    showHistoryList(listActivityReal, "activity")
+                    showHistoryList(findViewById(R.id.list_activity_real), "activity")
                 }
-                "Ganti Tema (Gelap/Terang)" -> {
+                "Ganti Tema" -> {
                     val isDark = AppCompatDelegate.getDefaultNightMode() == AppCompatDelegate.MODE_NIGHT_YES
                     AppCompatDelegate.setDefaultNightMode(if (isDark) AppCompatDelegate.MODE_NIGHT_NO else AppCompatDelegate.MODE_NIGHT_YES)
-                }
-                "Share Link" -> {
-                    val i = Intent(Intent.ACTION_SEND).apply {
-                        type = "text/plain"
-                        putExtra(Intent.EXTRA_TEXT, tabsList[activeTabIndex].url)
-                    }
-                    startActivity(Intent.createChooser(i, "Bagikan link"))
                 }
             }
             true
@@ -210,7 +208,7 @@ class MainActivity : AppCompatActivity() {
             tabLayer.visibility == View.VISIBLE -> tabLayer.visibility = View.GONE
             searchLayer.visibility == View.VISIBLE -> searchLayer.visibility = View.GONE
             activityLayer.visibility == View.VISIBLE -> activityLayer.visibility = View.GONE
-            tabsList[activeTabIndex].canGoBack() -> tabsList[activeTabIndex].goBack()
+            activeTabIndex >= 0 && tabsList[activeTabIndex].canGoBack() -> tabsList[activeTabIndex].goBack()
             else -> super.onBackPressed()
         }
     }

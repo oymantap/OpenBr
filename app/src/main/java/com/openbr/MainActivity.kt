@@ -3,6 +3,7 @@ package com.openbr
 import android.Manifest
 import android.content.*
 import android.content.res.Configuration
+import android.media.session.MediaSession
 import android.net.Uri
 import android.os.Bundle
 import android.view.*
@@ -24,11 +25,16 @@ class MainActivity : AppCompatActivity() {
     private lateinit var urlInputReal: EditText
     private lateinit var progressBar: ProgressBar
     private lateinit var listHistory: ListView
-    private val historyFile = "openbr_history.json"
+    private lateinit var mediaSession: MediaSession
+    private val historyFile = "openbr_data.json"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        // 1. Inisialisasi MediaSession (Biar Notif Musik Muncul)
+        mediaSession = MediaSession(this, "OpenBrSession")
+        mediaSession.isActive = true
 
         webView = findViewById(R.id.webview)
         searchLayer = findViewById(R.id.search_focus_layer)
@@ -37,14 +43,13 @@ class MainActivity : AppCompatActivity() {
         listHistory = findViewById(R.id.list_history)
         val swipeRefresh = findViewById<SwipeRefreshLayout>(R.id.swipe_refresh)
 
-        // 1. Media & Multiplayer Settings
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
             databaseEnabled = true
             allowFileAccess = true
             allowContentAccess = true
-            mediaPlaybackRequiresUserGesture = false // Fix panel notif music/video
+            mediaPlaybackRequiresUserGesture = false // Fix Media Notif
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
             userAgentString = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36"
         }
@@ -55,10 +60,11 @@ class MainActivity : AppCompatActivity() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 progressBar.visibility = View.GONE
                 swipeRefresh.isRefreshing = false
-                findViewById<TextView>(R.id.url_display_fake).text = url
-                url?.let { saveHistory(it) }
+                // Tampilkan judul web di bar, bukan link kepanjangan
+                findViewById<TextView>(R.id.url_display_fake).text = view?.title ?: url
+                // Simpan sebagai History Activity (Kunjungan)
+                url?.let { saveToData(it, view?.title ?: it, "visit") }
             }
-            // Fix Localhost / IP
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean = false
         }
 
@@ -72,12 +78,15 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // 2. Search & History Logic
+        // 2. Button Logic (Icon Home)
+        findViewById<ImageView>(R.id.btn_home).setOnClickListener { webView.loadUrl("https://www.google.com") }
+
         findViewById<View>(R.id.search_container_trigger).setOnClickListener {
             searchLayer.visibility = View.VISIBLE
-            showHistory()
+            showDataList() // Tampilkan data history
             urlInputReal.requestFocus()
-            (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(urlInputReal, 0)
+            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.showSoftInput(urlInputReal, 0)
         }
 
         findViewById<ImageButton>(R.id.btn_back_search).setOnClickListener { searchLayer.visibility = View.GONE }
@@ -86,9 +95,14 @@ class MainActivity : AppCompatActivity() {
         urlInputReal.setOnEditorActionListener { v, _, _ ->
             val query = v.text.toString().trim()
             if (query.isNotEmpty()) {
-                val url = if (query.contains(".") && !query.contains(" ")) {
+                val isUrl = query.contains(".") && !query.contains(" ")
+                val url = if (isUrl) {
                     if (query.startsWith("http")) query else "https://$query"
-                } else "https://www.google.com/search?q=$query"
+                } else {
+                    // Simpan sebagai History Search (Kata Kunci)
+                    saveToData(query, query, "search")
+                    "https://www.google.com/search?q=$query"
+                }
                 webView.loadUrl(url)
                 searchLayer.visibility = View.GONE
                 (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(v.windowToken, 0)
@@ -96,19 +110,18 @@ class MainActivity : AppCompatActivity() {
             true
         }
 
-        // 3. More Menu (Dark Mode, Refresh, Clear)
         findViewById<ImageButton>(R.id.btn_more).setOnClickListener { view ->
             val popup = PopupMenu(this, view)
             popup.menu.add("Refresh")
-            popup.menu.add("Ganti Tema (Dark/Light)")
+            popup.menu.add("Dark Mode / Light Mode")
             popup.menu.add("Bagikan")
             popup.menu.add("Hapus Riwayat")
             popup.setOnMenuItemClickListener {
                 when(it.title) {
                     "Refresh" -> webView.reload()
-                    "Ganti Tema (Dark/Light)" -> toggleTheme()
+                    "Dark Mode / Light Mode" -> toggleTheme()
                     "Bagikan" -> shareUrl()
-                    "Hapus Riwayat" -> { File(filesDir, historyFile).delete(); showHistory() }
+                    "Hapus Riwayat" -> { File(filesDir, historyFile).delete(); showDataList() }
                 }
                 true
             }
@@ -122,11 +135,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun toggleTheme() {
         val currentMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
-        if (currentMode == Configuration.UI_MODE_NIGHT_YES) {
-            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
-        } else {
-            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
-        }
+        val mode = if (currentMode == Configuration.UI_MODE_NIGHT_YES) 
+            AppCompatDelegate.MODE_NIGHT_NO else AppCompatDelegate.MODE_NIGHT_YES
+        AppCompatDelegate.setDefaultNightMode(mode)
     }
 
     private fun shareUrl() {
@@ -137,26 +148,50 @@ class MainActivity : AppCompatActivity() {
         startActivity(Intent.createChooser(i, "Bagikan via Open Br"))
     }
 
-    private fun saveHistory(url: String) {
+    // SIMPAN DATA KE JSON (.json)
+    private fun saveToData(value: String, title: String, type: String) {
         try {
             val file = File(filesDir, historyFile)
             val json = if (file.exists()) JSONArray(file.readText()) else JSONArray()
-            val entry = JSONObject().apply { put("url", url); put("time", System.currentTimeMillis()) }
+            
+            // Cek biar nggak duplikat
+            for (i in 0 until json.length()) {
+                if (json.getJSONObject(i).getString("val") == value) return
+            }
+
+            val entry = JSONObject().apply {
+                put("val", value)
+                put("title", title)
+                put("type", type)
+                put("time", System.currentTimeMillis())
+            }
             json.put(entry)
             file.writeText(json.toString())
         } catch (e: Exception) {}
     }
 
-    private fun showHistory() {
+    // TAMPILKAN DATA HISTORY
+    private fun showDataList() {
         try {
             val file = File(filesDir, historyFile)
             if (!file.exists()) { listHistory.adapter = null; return }
             val json = JSONArray(file.readText())
             val items = mutableListOf<String>()
-            for (i in (json.length() - 1) downTo 0) items.add(json.getJSONObject(i).getString("url"))
+            val rawValues = mutableListOf<String>()
+
+            for (i in (json.length() - 1) downTo 0) {
+                val obj = json.getJSONObject(i)
+                val type = obj.getString("type")
+                val label = if (type == "search") "🔍 ${obj.getString("val")}" else "🌐 ${obj.getString("title")}"
+                items.add(label)
+                rawValues.add(obj.getString("val"))
+            }
+
             listHistory.adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, items.distinct().take(20))
-            listHistory.setOnItemClickListener { _, _, pos, _ -> 
-                webView.loadUrl(items[pos])
+            listHistory.setOnItemClickListener { _, _, pos, _ ->
+                val target = rawValues[pos]
+                val url = if (target.startsWith("http")) target else "https://www.google.com/search?q=$target"
+                webView.loadUrl(url)
                 searchLayer.visibility = View.GONE
             }
         } catch (e: Exception) {}
@@ -170,9 +205,15 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        mediaSession.release()
+    }
+
     override fun onBackPressed() {
         if (searchLayer.visibility == View.VISIBLE) searchLayer.visibility = View.GONE
         else if (webView.canGoBack()) webView.goBack()
         else super.onBackPressed()
     }
 }
+

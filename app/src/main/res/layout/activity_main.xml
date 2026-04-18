@@ -66,7 +66,15 @@
             </RelativeLayout>
         </androidx.appcompat.widget.Toolbar>
 
-        <ProgressBar android:id="@+id/progress_bar" style="@android:style/Widget.ProgressBar.Horizontal" android:layout_width="match_parent" android:layout_height="3dp" android:visibility="gone" />
+        <ProgressBar
+    android:id="@+id/progress_bar"
+    style="@android:style/Widget.ProgressBar.Horizontal"
+    android:layout_width="match_parent"
+    android:layout_height="4dp"
+    android:progressDrawable="@drawable/custom_progress"
+    android:indeterminateOnly="false"
+    android:visibility="gone" />
+        
     </com.google.android.material.appbar.AppBarLayout>
 
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout

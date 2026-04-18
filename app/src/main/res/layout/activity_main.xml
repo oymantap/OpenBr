@@ -30,7 +30,7 @@
                     android:layout_height="28dp"
                     android:layout_alignParentStart="true"
                     android:layout_centerVertical="true"
-                    android:src="@android:drawable/ic_menu_home"
+                    android:src="@android:drawable/ic_dialog_dialer"
                     app:tint="?android:attr/textColorSecondary" />
 
                 <LinearLayout
@@ -75,7 +75,7 @@
                             android:layout_width="22dp"
                             android:layout_height="22dp"
                             android:layout_gravity="center"
-                            android:src="@android:drawable/checkbox_off_background"
+                            android:src="@android:drawable/checkbox_on_background"
                             app:tint="?android:attr/textColorSecondary" />
                         <TextView
                             android:id="@+id/tab_count"

@@ -13,7 +13,8 @@
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="Open Br"
-        android:theme="@style/Theme.OpenBr">
+        android:theme="@style/Theme.OpenBr"
+        android:usesCleartextTraffic="true">
         
         <activity
             android:name=".MainActivity"
@@ -35,3 +36,4 @@
         </activity>
     </application>
 </manifest>
+

@@ -11,8 +11,6 @@ import android.webkit.*
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
-import androidx.webkit.WebSettingsCompat
-import androidx.webkit.WebViewFeature
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import org.json.JSONArray
 import org.json.JSONObject
@@ -36,21 +34,21 @@ class MainActivity : AppCompatActivity() {
         urlDisplayFake = findViewById(R.id.url_display_fake)
         urlInputReal = findViewById(R.id.url_input_real)
         progressBar = findViewById(R.id.progress_bar)
-        
         val swipeRefresh = findViewById<SwipeRefreshLayout>(R.id.swipe_refresh)
 
-        // --- ENGINE SETTINGS ---
+        // --- ENGINE SETTINGS (Support Multiplayer & Media) ---
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
             databaseEnabled = true
             allowFileAccess = true
+            allowContentAccess = true
             mediaPlaybackRequiresUserGesture = false
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
             userAgentString = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36"
         }
 
-        // Bridge buat API Share Website
+        // Bridge Share API: Website bisa manggil AndroidShare.share(...)
         webView.addJavascriptInterface(WebShareInterface(this), "AndroidShare")
 
         webView.webViewClient = object : WebViewClient() {
@@ -58,10 +56,12 @@ class MainActivity : AppCompatActivity() {
                 progressBar.visibility = View.GONE
                 swipeRefresh.isRefreshing = false
                 urlDisplayFake.text = url
-                url?.let { saveToHistory(it) } // Simpan ke JSON
+                url?.let { saveToHistory(it) }
             }
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                return false 
+                val url = request?.url.toString()
+                if (url.startsWith("http")) return false
+                return true
             }
         }
 
@@ -70,24 +70,44 @@ class MainActivity : AppCompatActivity() {
                 progressBar.progress = newProgress
                 progressBar.visibility = if (newProgress < 100) View.VISIBLE else View.GONE
             }
-            // Support Multimedia/Multiplayer
             override fun onPermissionRequest(request: PermissionRequest) {
-                request.grant(request.resources)
+                request.grant(request.resources) // Penting buat testing multiplayer
             }
         }
 
-        // --- ACTION BUTTONS ---
+        // --- BUTTON LOGIC ---
         findViewById<ImageView>(R.id.btn_home).setOnClickListener { webView.loadUrl("https://www.google.com") }
-        
+
         findViewById<View>(R.id.search_container_trigger).setOnClickListener {
             searchLayer.visibility = View.VISIBLE
             urlInputReal.setText(webView.url)
             urlInputReal.requestFocus()
-            (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(urlInputReal, 0)
+            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.showSoftInput(urlInputReal, 0)
         }
 
         findViewById<ImageButton>(R.id.btn_back_search).setOnClickListener { searchLayer.visibility = View.GONE }
         findViewById<ImageButton>(R.id.btn_clear_text).setOnClickListener { urlInputReal.text.clear() }
+        
+        findViewById<ImageButton>(R.id.btn_more).setOnClickListener {
+            val popup = PopupMenu(this, it)
+            popup.menu.add("Refresh")
+            popup.menu.add("Bagikan")
+            popup.setOnMenuItemClickListener { item ->
+                when(item.title) {
+                    "Refresh" -> webView.reload()
+                    "Bagikan" -> {
+                        val i = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, webView.url)
+                        }
+                        startActivity(Intent.createChooser(i, "Share URL"))
+                    }
+                }
+                true
+            }
+            popup.show()
+        }
 
         urlInputReal.setOnEditorActionListener { v, _, _ ->
             val query = v.text.toString().trim()
@@ -108,12 +128,10 @@ class MainActivity : AppCompatActivity() {
         webView.loadUrl("https://www.google.com")
     }
 
-    // --- JSON HISTORY LOGIC ---
     private fun saveToHistory(url: String) {
         try {
             val file = File(filesDir, historyFileName)
             val jsonArray = if (file.exists()) JSONArray(file.readText()) else JSONArray()
-            
             val entry = JSONObject().apply {
                 put("url", url)
                 put("time", System.currentTimeMillis())
@@ -123,7 +141,6 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) { e.printStackTrace() }
     }
 
-    // --- JEMBATAN SHARE ---
     class WebShareInterface(private val context: Context) {
         @JavascriptInterface
         fun share(title: String, text: String, url: String) {

@@ -21,7 +21,12 @@ jobs:
 
     - name: Setup Gradle Wrapper
       run: |
-        curl -LO https://services.gradle.org/distributions/gradle-8.2-bin.zip
+        # Pake -fL biar kalo link error langsung stop, gak donlot file zonk
+        curl -fLO https://services.gradle.org/distributions/gradle-8.2-bin.zip
+        
+        # Cek ukuran file sebelum unzip (biar lu tau donlotnya bener apa engga)
+        ls -lh gradle-8.2-bin.zip
+        
         unzip -q gradle-8.2-bin.zip
         ./gradle-8.2/bin/gradle wrapper --gradle-version 8.2
         chmod +x gradlew

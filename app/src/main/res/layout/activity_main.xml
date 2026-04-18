@@ -7,19 +7,22 @@
     android:background="?android:attr/colorBackground">
 
     <com.google.android.material.appbar.AppBarLayout
+        android:id="@+id/app_bar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="?android:attr/colorBackground"
         app:elevation="2dp">
 
         <androidx.appcompat.widget.Toolbar
+            android:id="@+id/toolbar"
             android:layout_width="match_parent"
-            android:layout_height="64dp">
+            android:layout_height="64dp"
+            app:contentInsetStart="0dp">
 
             <RelativeLayout
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:layout_marginEnd="16dp">
+                android:paddingHorizontal="12dp">
 
                 <ImageView
                     android:id="@+id/btn_home"
@@ -33,23 +36,24 @@
                 <LinearLayout
                     android:id="@+id/search_container_trigger"
                     android:layout_width="match_parent"
-                    android:layout_height="44dp"
+                    android:layout_height="42dp"
                     android:layout_centerVertical="true"
                     android:layout_toEndOf="@id/btn_home"
                     android:layout_toStartOf="@+id/right_buttons"
                     android:layout_marginHorizontal="12dp"
                     android:background="@drawable/bg_search_bar"
                     android:gravity="center_vertical"
-                    android:paddingHorizontal="12dp">
+                    android:paddingHorizontal="16dp">
 
                     <TextView
                         android:id="@+id/url_display_fake"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="Cari atau ketik URL..."
-                        android:textColor="#5F6368"
+                        android:textColor="#80868B"
                         android:textSize="14sp"
-                        android:singleLine="true" />
+                        android:singleLine="true"
+                        android:ellipsize="end" />
                 </LinearLayout>
 
                 <LinearLayout
@@ -65,10 +69,11 @@
                         android:id="@+id/btn_tabs"
                         android:layout_width="32dp"
                         android:layout_height="32dp"
-                        android:layout_marginEnd="8dp">
+                        android:layout_marginEnd="10dp"
+                        android:background="?attr/selectableItemBackgroundBorderless">
                         <ImageView
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
                             android:layout_gravity="center"
                             android:src="@android:drawable/checkbox_off_background"
                             app:tint="#5F6368" />
@@ -79,8 +84,8 @@
                             android:layout_gravity="center"
                             android:text="1"
                             android:textSize="10sp"
-                            android:textColor="#5F6368"
-                            android:textStyle="bold" />
+                            android:textStyle="bold"
+                            android:textColor="#5F6368" />
                     </FrameLayout>
 
                     <ImageButton
@@ -98,7 +103,8 @@
             android:id="@+id/progress_bar"
             style="@android:style/Widget.ProgressBar.Horizontal"
             android:layout_width="match_parent"
-            android:layout_height="3dp"
+            android:layout_height="4dp"
+            android:progressDrawable="@drawable/custom_progress"
             android:visibility="gone" />
     </com.google.android.material.appbar.AppBarLayout>
 
@@ -121,7 +127,7 @@
         android:background="?android:attr/colorBackground"
         android:orientation="vertical"
         android:visibility="gone"
-        android:elevation="10dp"
+        android:elevation="15dp"
         android:clickable="true"
         android:focusable="true">
 
@@ -129,14 +135,16 @@
             android:layout_width="match_parent"
             android:layout_height="64dp"
             android:gravity="center_vertical"
-            android:paddingHorizontal="8dp">
+            android:paddingHorizontal="8dp"
+            android:background="?android:attr/colorBackground">
 
             <ImageButton
                 android:id="@+id/btn_back_search"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
-                android:src="@android:drawable/ic_menu_revert" />
+                android:src="@android:drawable/ic_menu_revert"
+                app:tint="#5F6368" />
 
             <EditText
                 android:id="@+id/url_input_real"
@@ -144,25 +152,43 @@
                 android:layout_height="44dp"
                 android:layout_weight="1"
                 android:background="@drawable/bg_search_bar"
-                android:hint="Cari atau ketik URL..."
+                android:hint="Ketik URL atau cari..."
                 android:imeOptions="actionGo"
                 android:inputType="textUri"
-                android:paddingHorizontal="12dp"
-                android:singleLine="true" />
+                android:paddingHorizontal="16dp"
+                android:singleLine="true"
+                android:textSize="16sp" />
 
             <ImageButton
                 android:id="@+id/btn_clear_text"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
-                android:src="@android:drawable/ic_menu_close_clear_cancel" />
+                android:src="@android:drawable/ic_menu_close_clear_cancel"
+                app:tint="#5F6368" />
         </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#DDDDDD" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Riwayat Jelajah (.json)"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:textColor="#80868B"
+            android:layout_margin="16dp" />
 
         <ListView
             android:id="@+id/list_history"
             android:layout_width="match_parent"
-            android:layout_height="match_parent" />
+            android:layout_height="match_parent"
+            android:divider="@null"
+            android:paddingHorizontal="8dp" />
     </LinearLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
-                
+        

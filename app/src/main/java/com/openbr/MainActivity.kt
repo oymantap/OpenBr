@@ -37,14 +37,18 @@ class MainActivity : AppCompatActivity() {
         val btnClear = findViewById<ImageButton>(R.id.btn_clear_text)
         val btnBackSearch = findViewById<ImageButton>(R.id.btn_back_search)
         val btnMore = findViewById<ImageButton>(R.id.btn_more)
+        val btnTabs = findViewById<View>(R.id.btn_tabs)
 
+        // --- ENGINE SETTINGS (Support Multiplayer/WebRTC) ---
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
             databaseEnabled = true
+            allowFileAccess = true
+            allowContentAccess = true
             mediaPlaybackRequiresUserGesture = false
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-            userAgentString = "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Mobile Safari/537.36"
+            userAgentString = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36"
             
             if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
                 WebSettingsCompat.setForceDark(this, WebSettingsCompat.FORCE_DARK_AUTO)
@@ -52,9 +56,11 @@ class MainActivity : AppCompatActivity() {
         }
 
         webView.webViewClient = object : WebViewClient() {
-            // FIX: Biar nggak mental ke browser luar atau stuck
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                view?.loadUrl(request?.url.toString())
+                val url = request?.url.toString()
+                if (url.startsWith("http")) {
+                    return false // Biar tetep load di WebView aplikasi
+                }
                 return true
             }
 
@@ -71,10 +77,11 @@ class MainActivity : AppCompatActivity() {
                 progressBar.visibility = if (newProgress < 100) View.VISIBLE else View.GONE
             }
             override fun onPermissionRequest(request: PermissionRequest) {
-                request.grant(request.resources)
+                request.grant(request.resources) // Izin kamera/mic buat WebRTC multiplayer
             }
         }
 
+        // --- NAVIGATION ---
         btnHome.setOnClickListener { webView.loadUrl("https://www.google.com") }
 
         findViewById<View>(R.id.search_container_trigger).setOnClickListener {
@@ -83,6 +90,10 @@ class MainActivity : AppCompatActivity() {
             urlInputReal.requestFocus()
             val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
             imm.showSoftInput(urlInputReal, InputMethodManager.SHOW_IMPLICIT)
+        }
+
+        btnTabs.setOnClickListener {
+            Toast.makeText(this, "Multi-tab fitur segera hadir!", Toast.LENGTH_SHORT).show()
         }
 
         btnClear.setOnClickListener { urlInputReal.text.clear() }
@@ -103,7 +114,7 @@ class MainActivity : AppCompatActivity() {
                 webView.loadUrl(url)
                 searchLayer.visibility = View.GONE
                 val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-                imm.hideSoftInputFromWindow(v.windowToken, 0)
+                imm.hideSoftInputFromWindow(urlInputReal.windowToken, 0)
             }
             true
         }

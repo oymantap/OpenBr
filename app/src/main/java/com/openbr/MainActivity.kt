@@ -3,7 +3,6 @@ package com.openbr
 import android.Manifest
 import android.content.*
 import android.content.res.Configuration
-import android.graphics.Color
 import android.media.MediaMetadata
 import android.media.session.MediaSession
 import android.media.session.PlaybackState
@@ -17,6 +16,9 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.app.ActivityCompat
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+// DUA IMPORT KERAMAT BIAR GAK ERROR LAGI:
+import androidx.webkit.WebSettingsCompat
+import androidx.webkit.WebViewFeature
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -28,8 +30,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var urlInputReal: EditText
     private lateinit var progressBar: ProgressBar
     private lateinit var listHistory: ListView
+    private lateinit var tabCountText: TextView // Tambahin ini
     private lateinit var mediaSession: MediaSession
     private val dataFile = "openbr_master.json"
+    private var tabCount = 1
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -38,7 +42,6 @@ class MainActivity : AppCompatActivity() {
         setupMediaSession()
         initUI()
         
-        // Handle Open File dari luar (ZArchiver dll)
         intent?.data?.let { handleIncomingUri(it) }
     }
 
@@ -48,6 +51,7 @@ class MainActivity : AppCompatActivity() {
         urlInputReal = findViewById(R.id.url_input_real)
         progressBar = findViewById(R.id.progress_bar)
         listHistory = findViewById(R.id.list_history)
+        tabCountText = findViewById(R.id.tab_count) // Hubungin ke XML lo
         val swipeRefresh = findViewById<SwipeRefreshLayout>(R.id.swipe_refresh)
 
         webView.settings.apply {
@@ -55,9 +59,11 @@ class MainActivity : AppCompatActivity() {
             domStorageEnabled = true
             allowFileAccess = true
             allowContentAccess = true
+            databaseEnabled = true
             mediaPlaybackRequiresUserGesture = false
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-            // Force Dark Mode untuk konten Website
+            
+            // DARK MODE FIX: Maksa Website Ikut Gelap
             if (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES) {
                 if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
                     WebSettingsCompat.setForceDark(this, WebSettingsCompat.FORCE_DARK_ON)
@@ -71,9 +77,16 @@ class MainActivity : AppCompatActivity() {
                 swipeRefresh.isRefreshing = false
                 findViewById<TextView>(R.id.url_display_fake).text = view?.title ?: url
                 
-                // Simpan sebagai Aktivitas Website (Bukan Pencarian)
-                url?.let { saveMasterData(it, view?.title ?: it, "activity", view?.favicon) }
+                // Simpan Aktivitas (Bukan cuma search)
+                url?.let { saveMasterData(it, view?.title ?: it, "activity") }
                 updateMediaMetadata(view?.title ?: "Open Br")
+            }
+
+            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                // Tiap buka link baru, angka tab nambah biar ga dummy
+                tabCount++
+                tabCountText.text = tabCount.toString()
+                return false
             }
         }
 
@@ -88,7 +101,11 @@ class MainActivity : AppCompatActivity() {
             searchLayer.visibility = View.VISIBLE
             showMasterData()
             urlInputReal.requestFocus()
+            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.showSoftInput(urlInputReal, 0)
         }
+
+        findViewById<ImageButton>(R.id.btn_back_search).setOnClickListener { searchLayer.visibility = View.GONE }
 
         urlInputReal.setOnEditorActionListener { v, _, _ ->
             val query = v.text.toString().trim()
@@ -98,15 +115,19 @@ class MainActivity : AppCompatActivity() {
                     query.contains("localhost") -> "http://$query"
                     query.contains(".") && !query.contains(" ") -> "https://$query"
                     else -> {
-                        saveMasterData(query, "Pencarian Google", "search", null)
+                        saveMasterData(query, "Pencarian Google", "search")
                         "https://www.google.com/search?q=$query"
                     }
                 }
                 webView.loadUrl(url)
                 searchLayer.visibility = View.GONE
+                val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                imm.hideSoftInputFromWindow(v.windowToken, 0)
             }
             true
         }
+
+        swipeRefresh.setOnRefreshListener { webView.reload() }
     }
 
     private fun handleIncomingUri(uri: Uri) {
@@ -120,7 +141,7 @@ class MainActivity : AppCompatActivity() {
             override fun onPause() { webView.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PAUSE)) }
         })
         val state = PlaybackState.Builder()
-            .setActions(PlaybackState.ACTION_PLAY or PlaybackState.ACTION_PAUSE or PlaybackState.ACTION_SKIP_TO_NEXT)
+            .setActions(PlaybackState.ACTION_PLAY or PlaybackState.ACTION_PAUSE)
             .setState(PlaybackState.STATE_PLAYING, 0, 1.0f).build()
         mediaSession.setPlaybackState(state)
         mediaSession.isActive = true
@@ -131,7 +152,7 @@ class MainActivity : AppCompatActivity() {
         mediaSession.setMetadata(meta)
     }
 
-    private fun saveMasterData(valStr: String, title: String, type: String, favicon: Any?) {
+    private fun saveMasterData(valStr: String, title: String, type: String) {
         try {
             val file = File(filesDir, dataFile)
             val json = if (file.exists()) JSONArray(file.readText()) else JSONArray()
@@ -149,13 +170,27 @@ class MainActivity : AppCompatActivity() {
             if (!file.exists()) return
             val json = JSONArray(file.readText())
             val items = mutableListOf<String>()
+            val rawUrls = mutableListOf<String>()
             for (i in (json.length() - 1) downTo 0) {
                 val obj = json.getJSONObject(i)
-                val prefix = if (obj.getString("type") == "search") "🔍" else "🌐"
-                items.add("$prefix ${obj.getString("title")}\n${obj.getString("val")}")
+                val type = obj.getString("type")
+                val display = if (type == "search") "🔍 Pencarian: ${obj.getString("val")}" 
+                              else "🌐 ${obj.getString("title")}\n${obj.getString("val")}"
+                items.add(display)
+                rawUrls.add(obj.getString("val"))
             }
             listHistory.adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, items.distinct().take(30))
+            listHistory.setOnItemClickListener { _, _, pos, _ ->
+                val target = rawUrls[pos]
+                webView.loadUrl(if (target.startsWith("http") || target.startsWith("file")) target else "https://google.com/search?q=$target")
+                searchLayer.visibility = View.GONE
+            }
         } catch (e: Exception) {}
     }
-}
 
+    override fun onBackPressed() {
+        if (searchLayer.visibility == View.VISIBLE) searchLayer.visibility = View.GONE
+        else if (webView.canGoBack()) webView.goBack()
+        else super.onBackPressed()
+    }
+}

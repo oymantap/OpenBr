@@ -7,7 +7,6 @@
     android:background="?android:attr/colorBackground">
 
     <com.google.android.material.appbar.AppBarLayout
-        android:id="@+id/app_bar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="?android:attr/colorBackground"
@@ -66,8 +65,7 @@
                         android:id="@+id/btn_tabs"
                         android:layout_width="32dp"
                         android:layout_height="32dp"
-                        android:layout_marginEnd="8dp"
-                        android:background="?attr/selectableItemBackgroundBorderless">
+                        android:layout_marginEnd="8dp">
                         <ImageView
                             android:layout_width="20dp"
                             android:layout_height="20dp"
@@ -81,8 +79,8 @@
                             android:layout_gravity="center"
                             android:text="1"
                             android:textSize="10sp"
-                            android:textStyle="bold"
-                            android:textColor="#5F6368" />
+                            android:textColor="#5F6368"
+                            android:textStyle="bold" />
                     </FrameLayout>
 
                     <ImageButton
@@ -101,7 +99,6 @@
             style="@android:style/Widget.ProgressBar.Horizontal"
             android:layout_width="match_parent"
             android:layout_height="3dp"
-            android:progressDrawable="@drawable/custom_progress"
             android:visibility="gone" />
     </com.google.android.material.appbar.AppBarLayout>
 
@@ -168,4 +165,4 @@
     </LinearLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
-            
+                

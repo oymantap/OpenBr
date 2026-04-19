@@ -1,10 +1,13 @@
 package com.openbr
 
+import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Bitmap
+import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.*
@@ -38,8 +41,16 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         initUI()
+        
+        // RESTORE TABS DULU
+        restoreTabsState()
+        
         handleIntent(intent)
-        if (tabsList.isEmpty()) createNewTab("https://www.google.com")
+        
+        // Jika tidak ada tab yang di-restore, baru bikin tab baru
+        if (tabsList.isEmpty()) {
+            createNewTab("https://www.google.com")
+        }
     }
 
     private fun initUI() {
@@ -53,7 +64,6 @@ class MainActivity : AppCompatActivity() {
         tabCountText = findViewById(R.id.tab_count)
         urlDisplay = findViewById(R.id.url_display_fake)
 
-        // Tombol X di input search: cuma muncul kalo ada teks
         urlInputReal.addTextChangedListener(object : TextWatcher {
             override fun afterTextChanged(s: Editable?) {
                 btnClearSearch.visibility = if (s.isNullOrEmpty()) View.GONE else View.VISIBLE
@@ -74,7 +84,8 @@ class MainActivity : AppCompatActivity() {
             searchLayer.visibility = View.VISIBLE
             showList(findViewById(R.id.list_history_search), "history")
             urlInputReal.requestFocus()
-            (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(urlInputReal, 0)
+            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.showSoftInput(urlInputReal, 0)
         }
 
         findViewById<ImageButton>(R.id.btn_more).setOnClickListener { showSettings(it) }
@@ -102,15 +113,45 @@ class MainActivity : AppCompatActivity() {
     private fun createNewTab(url: String) {
         val wv = WebView(this).apply {
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+            
+            // --- FIX WEB SHARE API ---
+            addJavascriptInterface(object : Any() {
+                @JavascriptInterface
+                fun share(title: String, text: String, url: String) {
+                    val intent = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_SUBJECT, title)
+                        putExtra(Intent.EXTRA_TEXT, "$text $url")
+                    }
+                    startActivity(Intent.createChooser(intent, "Share via"))
+                }
+            }, "AndroidShare")
+
             settings.apply {
                 javaScriptEnabled = true
                 domStorageEnabled = true
                 allowFileAccess = true
                 allowContentAccess = true
-                mediaPlaybackRequiresUserGesture = false // Biar video/musik gak macet di background
+                databaseEnabled = true
+                useWideViewPort = true
+                loadWithOverviewMode = true
+                mediaPlaybackRequiresUserGesture = false
             }
 
-            // DARK MODE TOTAL
+            // --- FIX DOWNLOAD ---
+            setDownloadListener { u, _, contentDisposition, mimetype, _ ->
+                val request = DownloadManager.Request(Uri.parse(u))
+                request.setMimeType(mimetype)
+                request.addRequestHeader("User-Agent", settings.userAgentString)
+                request.setDescription("Downloading file...")
+                request.setTitle(URLUtil.guessFileName(u, contentDisposition, mimetype))
+                request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, URLUtil.guessFileName(u, contentDisposition, mimetype))
+                val dm = getSystemService(DOWNLOAD_SERVICE) as DownloadManager
+                dm.enqueue(request)
+                Toast.makeText(applicationContext, "Downloading File...", Toast.LENGTH_LONG).show()
+            }
+
             if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
                 val isNight = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
                 WebSettingsCompat.setForceDark(settings, if (isNight) WebSettingsCompat.FORCE_DARK_ON else WebSettingsCompat.FORCE_DARK_OFF)
@@ -122,6 +163,7 @@ class MainActivity : AppCompatActivity() {
                     progressBar.visibility = if (p < 100) View.VISIBLE else View.GONE
                 }
             }
+
             webViewClient = object : WebViewClient() {
                 override fun onPageFinished(view: WebView?, url: String?) {
                     urlDisplay.text = view?.title ?: url
@@ -135,6 +177,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun switchTab(index: Int) {
+        if (index >= tabsList.size) return
         activeTabIndex = index
         webContainer.removeAllViews()
         webContainer.addView(tabsList[index])
@@ -143,7 +186,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun capturePreview() {
-        if (webContainer.width > 0) {
+        if (webContainer.width > 0 && webContainer.height > 0) {
             val bitmap = Bitmap.createBitmap(webContainer.width, webContainer.height, Bitmap.Config.ARGB_8888)
             webContainer.draw(android.graphics.Canvas(bitmap))
             tabPreviews[activeTabIndex] = bitmap
@@ -155,38 +198,46 @@ class MainActivity : AppCompatActivity() {
         container.removeAllViews()
         
         tabsList.forEachIndexed { i, wv ->
-            // Pastikan layout name-nya: item_tab_card
             val card = layoutInflater.inflate(R.layout.item_tab_card, container, false)
-            
-            val title = card.findViewById<TextView>(R.id.tab_title)
-            val img = card.findViewById<ImageView>(R.id.tab_preview)
-            val close = card.findViewById<ImageButton>(R.id.btn_close_this_tab)
-
-            title.text = wv.title ?: "Tab Baru"
-            img.setImageBitmap(tabPreviews[i])
+            card.findViewById<TextView>(R.id.tab_title).text = wv.title ?: "Tab Baru"
+            card.findViewById<ImageView>(R.id.tab_preview).setImageBitmap(tabPreviews[i])
             
             card.setOnClickListener { switchTab(i) }
-            close.setOnClickListener {
+            card.findViewById<View>(R.id.btn_close_this_tab).setOnClickListener {
                 if (tabsList.size > 1) {
                     tabsList.removeAt(i)
                     tabPreviews.remove(i)
                     if (activeTabIndex >= tabsList.size) activeTabIndex = tabsList.size - 1
-                    showTabs() // Refresh list
+                    showTabs()
                     switchTab(activeTabIndex)
-                } else {
-                    Toast.makeText(this, "Minimal satu tab terbuka", Toast.LENGTH_SHORT).show()
                 }
             }
             container.addView(card)
         }
     }
-    
+
+    // --- SAVE & RESTORE LOGIC ---
+    private fun saveTabsState() {
+        val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val urls = tabsList.map { it.url ?: "" }.filter { it.isNotEmpty() }.toSet()
+        prefs.edit().putStringSet("saved_tabs", urls).apply()
+    }
+
+    private fun restoreTabsState() {
+        val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val urls = prefs.getStringSet("saved_tabs", null)
+        urls?.forEach { createNewTab(it) }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        saveTabsState() // Save tab pas aplikasi ditutup
+    }
 
     private fun showSettings(v: View) {
         val p = PopupMenu(this, v)
         p.menu.add("Refresh")
         p.menu.add("Aktivitas")
-        p.menu.add("Tambah Tab")
         p.menu.add("Mode Gelap/Terang")
         p.setOnMenuItemClickListener {
             when(it.title) {
@@ -195,7 +246,6 @@ class MainActivity : AppCompatActivity() {
                     activityLayer.visibility = View.VISIBLE
                     showList(findViewById(R.id.list_activity_real), "activity")
                 }
-                "Tambah Tab" -> createNewTab("https://www.google.com")
                 "Mode Gelap/Terang" -> {
                     val mode = if (AppCompatDelegate.getDefaultNightMode() == AppCompatDelegate.MODE_NIGHT_YES)
                         AppCompatDelegate.MODE_NIGHT_NO else AppCompatDelegate.MODE_NIGHT_YES
@@ -245,3 +295,4 @@ class MainActivity : AppCompatActivity() {
         }
     }
 }
+

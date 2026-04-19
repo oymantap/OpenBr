@@ -59,13 +59,24 @@
         <ListView android:id="@+id/list_activity_real" android:layout_width="match_parent" android:layout_height="match_parent" />
     </LinearLayout>
 
-    <LinearLayout android:id="@+id/tab_layer" android:layout_width="match_parent" android:layout_height="match_parent" android:background="?android:attr/colorBackground" android:orientation="vertical" android:visibility="gone" android:elevation="30dp" android:clickable="true">
-        <RelativeLayout android:layout_width="match_parent" android:layout_height="64dp" android:paddingHorizontal="16dp">
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Tab" android:textSize="18sp" android:textStyle="bold" android:layout_centerVertical="true" />
-            <ImageButton android:id="@+id/btn_close_tab_layer" android:layout_width="40dp" android:layout_height="40dp" android:layout_alignParentEnd="true" android:layout_centerVertical="true" android:src="@drawable/ic_close" android:background="?selectableItemBackgroundBorderless" />
-        </RelativeLayout>
-        <ListView android:id="@+id/list_tabs_preview" android:layout_width="match_parent" android:layout_height="match_parent" />
-    </LinearLayout>
+<LinearLayout android:id="@+id/tab_layer" 
+    android:layout_width="match_parent" 
+    android:layout_height="match_parent" 
+    android:background="?android:attr/colorBackground" 
+    android:orientation="vertical" 
+    android:visibility="gone" 
+    android:elevation="30dp" 
+    android:clickable="true">
+    
+    <RelativeLayout android:layout_width="match_parent" android:layout_height="64dp" android:paddingHorizontal="16dp">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Semua Tab" android:textStyle="bold" android:layout_centerVertical="true" />
+        <ImageButton android:id="@+id/btn_close_tab_layer" android:layout_width="40dp" android:layout_height="40dp" android:layout_alignParentEnd="true" android:layout_centerVertical="true" android:src="@drawable/ic_close" android:background="?selectableItemBackgroundBorderless" />
+    </RelativeLayout>
+
+    <ScrollView android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
+        <LinearLayout android:id="@+id/tab_items_container" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp" />
+    </ScrollView>
+</LinearLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
         

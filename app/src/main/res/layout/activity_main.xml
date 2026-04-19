@@ -121,7 +121,8 @@
         android:elevation="20dp"
         android:orientation="vertical"
         android:visibility="gone"
-        android:clickable="true">
+        android:clickable="true"
+        android:focusable="true">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -147,6 +148,14 @@
                 android:paddingHorizontal="12dp"
                 android:imeOptions="actionGo"
                 android:inputType="textUri" />
+            <ImageButton
+                android:id="@+id/btn_clear_search"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_close"
+                android:visibility="gone"
+                app:tint="#FFFFFF" />
         </LinearLayout>
 
         <RelativeLayout
@@ -164,7 +173,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_alignParentEnd="true"
-                android:text="Hapus"
+                android:text="Hapus Semua"
                 android:textColor="#FF5252" />
         </RelativeLayout>
 
@@ -184,7 +193,8 @@
         android:elevation="30dp"
         android:orientation="vertical"
         android:visibility="gone"
-        android:clickable="true">
+        android:clickable="true"
+        android:focusable="true">
         
         <RelativeLayout
             android:layout_width="match_parent"
@@ -194,9 +204,9 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_centerVertical="true"
-                android:text="Tab Manager"
+                android:text="Tabs"
                 android:textColor="#FF2F92"
-                android:textSize="18sp"
+                android:textSize="20sp"
                 android:textStyle="bold" />
             <ImageButton
                 android:id="@+id/btn_close_tab_layer"
@@ -218,10 +228,11 @@
             android:layout_width="match_parent"
             android:layout_height="56dp"
             android:layout_margin="16dp"
-            android:text="+ Tambah Tab"
+            android:text="+ Tambah Tab Baru"
             app:backgroundTint="#FF2F92"
             android:textColor="#121212"
-            app:cornerRadius="12dp" />
+            app:cornerRadius="12dp"
+            android:textAllCaps="false" />
     </LinearLayout>
 
     <LinearLayout
@@ -232,7 +243,8 @@
         android:elevation="30dp"
         android:orientation="vertical"
         android:visibility="gone"
-        android:clickable="true">
+        android:clickable="true"
+        android:focusable="true">
 
         <RelativeLayout
             android:layout_width="match_parent"
@@ -253,7 +265,7 @@
                 android:layout_centerVertical="true"
                 android:layout_toStartOf="@+id/btn_close_activity"
                 android:layout_marginEnd="16dp"
-                android:text="Hapus"
+                android:text="Hapus Semua"
                 android:textColor="#FF5252" />
             <ImageButton
                 android:id="@+id/btn_close_activity"
@@ -275,4 +287,4 @@
     </LinearLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
-            
+        

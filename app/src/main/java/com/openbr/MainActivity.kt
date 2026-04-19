@@ -3,7 +3,6 @@ package com.openbr
 import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
-import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
@@ -15,7 +14,6 @@ import android.view.inputmethod.InputMethodManager
 import android.webkit.*
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.app.AppCompatDelegate
 import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewFeature
 
@@ -58,7 +56,7 @@ class MainActivity : AppCompatActivity() {
         tabCountText = findViewById(R.id.tab_count)
         urlDisplay = findViewById(R.id.url_display_fake)
 
-        // Tombol Tambah Tab di dalam Manager
+        // Tombol Tambah Tab
         findViewById<View>(R.id.btn_add_tab_bottom).setOnClickListener {
             createNewTab("https://www.google.com")
             tabLayer.visibility = View.GONE
@@ -86,11 +84,12 @@ class MainActivity : AppCompatActivity() {
 
         findViewById<View>(R.id.search_container_trigger).setOnClickListener {
             searchLayer.visibility = View.VISIBLE
-            // Set URL sekarang ke inputan sebelum ngetik
-            urlInputReal.setText(tabsList[activeTabIndex].url) 
+            // FIX: Sinkronkan teks input dengan URL tab aktif saat dibuka
+            urlInputReal.setText(tabsList[activeTabIndex].url)
             showList(findViewById(R.id.list_history_search), "history")
             urlInputReal.requestFocus()
-            (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(urlInputReal, 0)
+            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.showSoftInput(urlInputReal, 0)
         }
 
         findViewById<ImageButton>(R.id.btn_more).setOnClickListener { showSettings(it) }
@@ -119,18 +118,6 @@ class MainActivity : AppCompatActivity() {
         val wv = WebView(this).apply {
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
             
-            addJavascriptInterface(object : Any() {
-                @JavascriptInterface
-                fun share(title: String, text: String, url: String) {
-                    val intent = Intent(Intent.ACTION_SEND).apply {
-                        type = "text/plain"
-                        putExtra(Intent.EXTRA_SUBJECT, title)
-                        putExtra(Intent.EXTRA_TEXT, "$text $url")
-                    }
-                    startActivity(Intent.createChooser(intent, "Share via"))
-                }
-            }, "AndroidShare")
-
             settings.apply {
                 javaScriptEnabled = true
                 domStorageEnabled = true
@@ -139,22 +126,19 @@ class MainActivity : AppCompatActivity() {
                 databaseEnabled = true
                 useWideViewPort = true
                 loadWithOverviewMode = true
-                mediaPlaybackRequiresUserGesture = false
             }
 
-            setDownloadListener { u, _, contentDisposition, mimetype, _ ->
-                val request = DownloadManager.Request(Uri.parse(u))
-                request.setMimeType(mimetype)
-                request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, URLUtil.guessFileName(u, contentDisposition, mimetype))
-                request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                val dm = getSystemService(DOWNLOAD_SERVICE) as DownloadManager
-                dm.enqueue(request)
-                Toast.makeText(applicationContext, "Downloading...", Toast.LENGTH_SHORT).show()
-            }
-
+            // FORCE DARK MODE SELALU ON
             if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
-                val isNight = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-                WebSettingsCompat.setForceDark(settings, if (isNight) WebSettingsCompat.FORCE_DARK_ON else WebSettingsCompat.FORCE_DARK_OFF)
+                WebSettingsCompat.setForceDark(settings, WebSettingsCompat.FORCE_DARK_ON)
+            }
+
+            setDownloadListener { u, _, cD, mT, _ ->
+                val request = DownloadManager.Request(Uri.parse(u))
+                request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, URLUtil.guessFileName(u, cD, mT))
+                (getSystemService(DOWNLOAD_SERVICE) as DownloadManager).enqueue(request)
+                Toast.makeText(applicationContext, "Downloading...", Toast.LENGTH_SHORT).show()
             }
 
             webChromeClient = object : WebChromeClient() {
@@ -166,7 +150,8 @@ class MainActivity : AppCompatActivity() {
 
             webViewClient = object : WebViewClient() {
                 override fun onPageFinished(view: WebView?, url: String?) {
-                    if (activeTabIndex < tabsList.size && tabsList[activeTabIndex] == view) {
+                    // Update display hanya jika ini tab aktif
+                    if (tabsList.indexOf(view) == activeTabIndex) {
                         urlDisplay.text = view?.title ?: url
                     }
                     saveLog("activity", "${view?.title ?: "Web"}|$url")
@@ -184,9 +169,8 @@ class MainActivity : AppCompatActivity() {
         webContainer.removeAllViews()
         webContainer.addView(tabsList[index])
         
-        // SINKRONISASI URL DISPLAY DISINI
+        // FIX: Update UI Header saat pindah tab agar tidak perlu refresh manual
         urlDisplay.text = tabsList[index].title ?: tabsList[index].url ?: "Cari atau ketik URL"
-        
         tabCountText.text = tabsList.size.toString()
         tabLayer.visibility = View.GONE
     }
@@ -220,33 +204,17 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun saveTabsState() {
-        val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val urls = tabsList.map { it.url ?: "" }.filter { it.isNotEmpty() }.toSet()
-        prefs.edit().putStringSet("saved_tabs", urls).apply()
-    }
-
-    private fun restoreTabsState() {
-        val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val urls = prefs.getStringSet("saved_tabs", null)
-        urls?.forEach { createNewTab(it) }
-    }
-
-    override fun onStop() {
-        super.onStop()
-        saveTabsState()
-    }
-
     private fun clearLog(key: String, lv: ListView) {
         getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(key).apply()
         showList(lv, key)
-        Toast.makeText(this, "Berhasil dihapus", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Cleared", Toast.LENGTH_SHORT).show()
     }
 
     private fun saveLog(key: String, value: String) {
         val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val set = prefs.getStringSet(key, linkedSetOf()) ?: linkedSetOf()
         val newSet = LinkedHashSet<String>(set)
+        if (newSet.size > 50) newSet.remove(newSet.first()) // Limit 50 items
         newSet.add(value)
         prefs.edit().putStringSet(key, newSet).apply()
     }
@@ -266,7 +234,6 @@ class MainActivity : AppCompatActivity() {
         val p = PopupMenu(this, v)
         p.menu.add("Refresh")
         p.menu.add("Aktivitas")
-        p.menu.add("Mode Gelap/Terang")
         p.setOnMenuItemClickListener {
             when(it.title) {
                 "Refresh" -> tabsList[activeTabIndex].reload()
@@ -274,24 +241,31 @@ class MainActivity : AppCompatActivity() {
                     activityLayer.visibility = View.VISIBLE
                     showList(findViewById(R.id.list_activity_real), "activity")
                 }
-                "Mode Gelap/Terang" -> {
-                    val mode = if (AppCompatDelegate.getDefaultNightMode() == AppCompatDelegate.MODE_NIGHT_YES)
-                        AppCompatDelegate.MODE_NIGHT_NO else AppCompatDelegate.MODE_NIGHT_YES
-                    AppCompatDelegate.setDefaultNightMode(mode)
-                }
             }
             true
         }
         p.show()
     }
 
-    private fun handleIntent(intent: Intent?) {
-        if (intent?.action == Intent.ACTION_VIEW) intent.dataString?.let { createNewTab(it) }
+    private fun saveTabsState() {
+        val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val urls = tabsList.map { it.url ?: "" }.filter { it.isNotEmpty() }.toSet()
+        prefs.edit().putStringSet("saved_tabs", urls).apply()
     }
 
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        handleIntent(intent)
+    private fun restoreTabsState() {
+        val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val urls = prefs.getStringSet("saved_tabs", null)
+        urls?.forEach { createNewTab(it) }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        saveTabsState()
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        if (intent?.action == Intent.ACTION_VIEW) intent.dataString?.let { createNewTab(it) }
     }
 
     override fun onBackPressed() {

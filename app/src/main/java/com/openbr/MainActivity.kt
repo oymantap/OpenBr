@@ -115,7 +115,7 @@ class MainActivity : AppCompatActivity() {
                 databaseEnabled = true
                 useWideViewPort = true
                 loadWithOverviewMode = true
-                userAgentString = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36"
+                // Tidak perlu setting userAgentString secara manual lagi
             }
 
             // NORMAL DARK MODE (Pakai fitur SDK resmi tanpa paksaan ekstrim)

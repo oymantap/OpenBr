@@ -158,10 +158,26 @@
                 app:tint="?android:attr/textColorPrimary" />
         </LinearLayout>
 
-        <View
+        <RelativeLayout
             android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:background="?android:attr/dividerVertical" />
+            android:layout_height="wrap_content"
+            android:paddingHorizontal="16dp"
+            android:paddingBottom="8dp">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Riwayat Pencarian"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+            <TextView
+                android:id="@+id/btn_clear_history_all"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentEnd="true"
+                android:text="Hapus Semua"
+                android:textColor="#FF5252"
+                android:textSize="12sp" />
+        </RelativeLayout>
 
         <ListView
             android:id="@+id/list_history_search"
@@ -186,7 +202,6 @@
             android:layout_width="match_parent"
             android:layout_height="64dp"
             android:paddingHorizontal="16dp">
-
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -195,7 +210,6 @@
                 android:textColor="?android:attr/textColorPrimary"
                 android:textSize="18sp"
                 android:textStyle="bold" />
-
             <ImageButton
                 android:id="@+id/btn_close_tab_layer"
                 android:layout_width="40dp"
@@ -209,7 +223,8 @@
 
         <ScrollView
             android:layout_width="match_parent"
-            android:layout_height="match_parent">
+            android:layout_height="0dp"
+            android:layout_weight="1">
             <LinearLayout
                 android:id="@+id/tab_items_container"
                 android:layout_width="match_parent"
@@ -217,6 +232,14 @@
                 android:orientation="vertical"
                 android:padding="16dp" />
         </ScrollView>
+
+        <Button
+            android:id="@+id/btn_add_tab_bottom"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_margin="16dp"
+            android:text="+ Tambah Tab Baru"
+            android:textAllCaps="false" />
     </LinearLayout>
 
     <LinearLayout
@@ -234,16 +257,23 @@
             android:layout_width="match_parent"
             android:layout_height="64dp"
             android:paddingHorizontal="16dp">
-
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_centerVertical="true"
-                android:text="Riwayat Aktivitas"
+                android:text="Aktivitas"
                 android:textColor="?android:attr/textColorPrimary"
                 android:textSize="18sp"
                 android:textStyle="bold" />
-
+            <TextView
+                android:id="@+id/btn_clear_activity_all"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerVertical="true"
+                android:layout_toStartOf="@+id/btn_close_activity"
+                android:layout_marginEnd="16dp"
+                android:text="Hapus Semua"
+                android:textColor="#FF5252" />
             <ImageButton
                 android:id="@+id/btn_close_activity"
                 android:layout_width="40dp"
@@ -264,4 +294,4 @@
     </LinearLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
-                
+            

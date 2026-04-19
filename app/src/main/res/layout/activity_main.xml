@@ -28,7 +28,7 @@
                     android:layout_height="28dp"
                     android:layout_centerVertical="true"
                     android:src="@drawable/ic_home_outline"
-                    app:tint="#FF2F92"
+                    app:tint="#FFFFFF"
                     android:background="?selectableItemBackgroundBorderless"/>
 
                 <LinearLayout
@@ -73,14 +73,14 @@
                             android:layout_height="22dp"
                             android:layout_gravity="center"
                             android:background="@drawable/bg_tab_box"
-                            android:backgroundTint="#FF2F92" />
+                            android:backgroundTint="#FFFFFF" />
                         <TextView
                             android:id="@+id/tab_count"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_gravity="center"
                             android:text="1"
-                            android:textColor="#FFFFFF"
+                            android:textColor="#121212"
                             android:textSize="11sp"
                             android:textStyle="bold" />
                     </FrameLayout>
@@ -101,7 +101,7 @@
             style="@android:style/Widget.ProgressBar.Horizontal"
             android:layout_width="match_parent"
             android:layout_height="3dp"
-            android:progressTint="#FF2F92"
+            android:progressTint="#FFFFFF"
             android:progressBackgroundTint="#333333"
             android:visibility="gone" />
     </com.google.android.material.appbar.AppBarLayout>
@@ -135,7 +135,7 @@
                 android:layout_height="40dp"
                 android:background="?selectableItemBackgroundBorderless"
                 android:src="@drawable/ic_arrow_back"
-                app:tint="#FF2F92" />
+                app:tint="#FFFFFF" />
             <EditText
                 android:id="@+id/url_input_real"
                 android:layout_width="0dp"
@@ -166,7 +166,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Riwayat"
-                android:textColor="#BB86FC"
+                android:textColor="#FFFFFF"
                 android:textStyle="bold" />
             <TextView
                 android:id="@+id/btn_clear_history_all"
@@ -205,7 +205,7 @@
                 android:layout_height="wrap_content"
                 android:layout_centerVertical="true"
                 android:text="Tabs"
-                android:textColor="#FF2F92"
+                android:textColor="#FFFFFF"
                 android:textSize="20sp"
                 android:textStyle="bold" />
             <ImageButton
@@ -229,7 +229,7 @@
             android:layout_height="56dp"
             android:layout_margin="16dp"
             android:text="+ Tambah Tab Baru"
-            app:backgroundTint="#FF2F92"
+            app:backgroundTint="#FFFFFF"
             android:textColor="#121212"
             app:cornerRadius="12dp"
             android:textAllCaps="false" />
@@ -255,7 +255,7 @@
                 android:layout_height="wrap_content"
                 android:layout_centerVertical="true"
                 android:text="Aktivitas"
-                android:textColor="#FF2F92"
+                android:textColor="#FFFFFF"
                 android:textSize="18sp"
                 android:textStyle="bold" />
             <TextView
@@ -287,4 +287,4 @@
     </LinearLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
-        
+                        

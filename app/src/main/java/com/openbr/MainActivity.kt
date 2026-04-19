@@ -116,13 +116,14 @@ class MainActivity : AppCompatActivity() {
                 databaseEnabled = true
                 useWideViewPort = true
                 loadWithOverviewMode = true
+                // Paksa User Agent Chrome Mobile biar web lebih nurut
+                userAgentString = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36"
             }
 
-            // --- PAKSA DARK MODE (ULTIMATE) ---
+            // --- NATIVE FORCE DARK ---
             if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
                 WebSettingsCompat.setForceDark(settings, WebSettingsCompat.FORCE_DARK_ON)
             }
-            // Ini kunci buat website putih biar dipaksa sistem jadi item
             if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK_STRATEGY)) {
                 WebSettingsCompat.setForceDarkStrategy(settings, WebSettingsCompat.DARK_STRATEGY_USER_AGENT_DARKENING_ONLY)
             }
@@ -138,11 +139,28 @@ class MainActivity : AppCompatActivity() {
                 override fun onProgressChanged(view: WebView?, p: Int) {
                     progressBar.progress = p
                     progressBar.visibility = if (p < 100) View.VISIBLE else View.GONE
+                    
+                    // Injeksi JS pas loading biar gak kedip putih
+                    view?.evaluateJavascript(
+                        "document.documentElement.style.backgroundColor = '#121212'; " +
+                        "document.body.style.backgroundColor = '#121212';", null
+                    )
                 }
             }
 
             webViewClient = object : WebViewClient() {
                 override fun onPageFinished(view: WebView?, url: String?) {
+                    // --- BRUTAL DARK MODE INJECTION ---
+                    view?.evaluateJavascript(
+                        "(function() { " +
+                        "  var css = 'html, body, div, nav, header, footer, section, article { background-color: #121212 !important; color: #e0e0e0 !important; } " +
+                        "  a { color: #bb86fc !important; } img { opacity: 0.7; }';" +
+                        "  var style = document.createElement('style'); " +
+                        "  style.innerHTML = css; " +
+                        "  document.head.appendChild(style); " +
+                        "})();", null
+                    )
+                    
                     if (tabsList.indexOf(view) == activeTabIndex) urlDisplay.text = view?.title ?: url
                     saveLog("activity", "${view?.title ?: "Web"}|$url")
                 }
@@ -178,15 +196,11 @@ class MainActivity : AppCompatActivity() {
             val card = layoutInflater.inflate(R.layout.item_tab_card, container, false)
             card.findViewById<TextView>(R.id.tab_title).text = wv.title ?: "Tab Baru"
             card.findViewById<ImageView>(R.id.tab_preview).setImageBitmap(tabPreviews[i])
-            
-            // Ripple effect di card tab
             card.setBackgroundResource(android.R.drawable.list_selector_background)
-            
             card.setOnClickListener { switchTab(i) }
             card.findViewById<View>(R.id.btn_close_this_tab).setOnClickListener {
                 if (tabsList.size > 1) {
-                    tabsList.removeAt(i)
-                    tabPreviews.remove(i)
+                    tabsList.removeAt(i); tabPreviews.remove(i)
                     if (activeTabIndex >= tabsList.size) activeTabIndex = tabsList.size - 1
                     showTabs(); switchTab(activeTabIndex)
                 }
@@ -215,15 +229,13 @@ class MainActivity : AppCompatActivity() {
         lv.setOnItemClickListener { _, _, i, _ ->
             val u = if (data[i].contains("|")) data[i].split("|")[1] else "https://google.com/search?q=${data[i]}"
             tabsList[activeTabIndex].loadUrl(u)
-            searchLayer.visibility = View.GONE
-            activityLayer.visibility = View.GONE
+            searchLayer.visibility = View.GONE; activityLayer.visibility = View.GONE
         }
     }
 
     private fun showSettings(v: View) {
         val p = PopupMenu(this, v)
-        p.menu.add("Refresh")
-        p.menu.add("Aktivitas")
+        p.menu.add("Refresh"); p.menu.add("Aktivitas")
         p.setOnMenuItemClickListener {
             when(it.title) {
                 "Refresh" -> tabsList[activeTabIndex].reload()
@@ -255,4 +267,3 @@ class MainActivity : AppCompatActivity() {
         }
     }
 }
-

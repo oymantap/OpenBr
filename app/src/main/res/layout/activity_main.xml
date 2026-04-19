@@ -24,11 +24,12 @@
 
                 <ImageView
                     android:id="@+id/btn_home"
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
                     android:layout_centerVertical="true"
                     android:src="@drawable/ic_home_outline"
                     app:tint="#FFFFFF"
+                    android:padding="4dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:clickable="true"
                     android:focusable="true"/>
@@ -70,9 +71,9 @@
 
                     <FrameLayout
                         android:id="@+id/btn_tabs"
-                        android:layout_width="36dp"
-                        android:layout_height="36dp"
-                        android:layout_marginEnd="8dp"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:layout_marginEnd="4dp"
                         android:background="?attr/selectableItemBackgroundBorderless"
                         android:clickable="true"
                         android:focusable="true">
@@ -99,7 +100,9 @@
                         android:layout_height="32dp"
                         android:background="?attr/selectableItemBackgroundBorderless"
                         android:src="@drawable/ic_more_vert"
-                        app:tint="#FFFFFF" />
+                        app:tint="#FFFFFF"
+                        android:clickable="true"
+                        android:focusable="true" />
                 </LinearLayout>
             </RelativeLayout>
         </androidx.appcompat.widget.Toolbar>

@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.OpenBr" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="android:statusBarColor">#121212</item>
+        <item name="android:navigationBarColor">#121212</item>
         <item name="android:windowBackground">#121212</item>
+
+        <item name="colorPrimary">#FF2F92</item> <item name="colorSecondary">#BB86FC</item> <item name="android:itemBackground">#1E1E1E</item>
         <item name="android:textColorPrimary">#FFFFFF</item>
-        <item name="android:textColorSecondary">#B0B0B0</item>
-        <item name="colorSurface">#1E1E1E</item>
-        <item name="colorPrimary">#BB86FC</item>
+        <item name="actionBarPopupTheme">@style/ThemeOverlay.AppCompat.Dark</item>
     </style>
 </resources>

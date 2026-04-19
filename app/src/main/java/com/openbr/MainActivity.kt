@@ -64,7 +64,6 @@ class MainActivity : AppCompatActivity() {
 
         urlInputReal.addTextChangedListener(object : TextWatcher {
             override fun afterTextChanged(s: Editable?) { 
-                // FIXED: Menggunakan variabel yang sudah di-init
                 btnClearSearch.visibility = if (s.isNullOrEmpty()) View.GONE else View.VISIBLE 
             }
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
@@ -119,9 +118,16 @@ class MainActivity : AppCompatActivity() {
                 loadWithOverviewMode = true
             }
 
-            // FORCE DARK WEB CONTENT
+            // CRITICAL: FORCE DARK WEB CONTENT (TETAP AKTIF!)
             if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
                 WebSettingsCompat.setForceDark(settings, WebSettingsCompat.FORCE_DARK_ON)
+            }
+
+            setDownloadListener { u, _, cD, mT, _ ->
+                val request = DownloadManager.Request(Uri.parse(u))
+                request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, URLUtil.guessFileName(u, cD, mT))
+                (getSystemService(DOWNLOAD_SERVICE) as DownloadManager).enqueue(request)
             }
 
             webChromeClient = object : WebChromeClient() {
@@ -190,6 +196,7 @@ class MainActivity : AppCompatActivity() {
         val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val set = prefs.getStringSet(key, linkedSetOf()) ?: linkedSetOf()
         val newSet = LinkedHashSet<String>(set)
+        if (newSet.size > 50) newSet.remove(newSet.first())
         newSet.add(value)
         prefs.edit().putStringSet(key, newSet).apply()
     }
@@ -240,4 +247,3 @@ class MainActivity : AppCompatActivity() {
         }
     }
 }
-

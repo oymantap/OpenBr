@@ -2,6 +2,7 @@ package com.openbr
 
 import android.app.DownloadManager
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
@@ -32,6 +33,7 @@ class MainActivity : AppCompatActivity() {
     private val tabsList = mutableListOf<WebView>()
     private val tabPreviews = mutableMapOf<Int, Bitmap?>()
     private var activeTabIndex = 0
+    private var isDesktopMode = false
     private val PREFS = "OpenBr_Official_V3"
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -39,7 +41,23 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         initUI()
         restoreTabsState()
-        if (tabsList.isEmpty()) createNewTab("https://www.google.com")
+        
+        // Handle URL dari luar (Default Browser / File)
+        handleIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        val data: Uri? = intent?.data
+        if (data != null) {
+            createNewTab(data.toString())
+        } else if (tabsList.isEmpty()) {
+            createNewTab("https://www.google.com")
+        }
     }
 
     private fun initUI() {
@@ -91,7 +109,10 @@ class MainActivity : AppCompatActivity() {
             val query = v.text.toString().trim()
             if (query.isNotEmpty()) {
                 val url = when {
-                    query.startsWith("http") || query.contains("localhost") -> query
+                    query.startsWith("http") || query.startsWith("file://") || query.startsWith("content://") -> query
+                    query.contains("localhost") || query.startsWith("127.0.0.1") -> {
+                        if (query.startsWith("http")) query else "http://$query"
+                    }
                     query.contains(".") && !query.contains(" ") -> "https://$query"
                     else -> "https://www.google.com/search?q=$query"
                 }
@@ -115,12 +136,13 @@ class MainActivity : AppCompatActivity() {
                 databaseEnabled = true
                 useWideViewPort = true
                 loadWithOverviewMode = true
-                // Tidak perlu setting userAgentString secara manual lagi
+                allowFileAccess = true
+                allowContentAccess = true
             }
 
-            // NORMAL DARK MODE (Pakai fitur SDK resmi tanpa paksaan ekstrim)
+            // DARK MODE NORMAL (Hanya jika didukung sistem)
             if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
-                WebSettingsCompat.setForceDark(settings, WebSettingsCompat.FORCE_DARK_ON)
+                WebSettingsCompat.setForceDark(settings, WebSettingsCompat.FORCE_DARK_AUTO)
             }
 
             setDownloadListener { u, _, cD, mT, _ ->
@@ -159,6 +181,19 @@ class MainActivity : AppCompatActivity() {
         urlDisplay.text = tabsList[index].title ?: tabsList[index].url ?: "Cari atau ketik URL"
         tabCountText.text = tabsList.size.toString()
         tabLayer.visibility = View.GONE
+    }
+
+    private fun toggleDesktopMode(webView: WebView, enabled: Boolean) {
+        val desktopUA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
+        webView.settings.apply {
+            userAgentString = if (enabled) desktopUA else null
+            useWideViewPort = enabled
+            loadWithOverviewMode = enabled
+            setSupportZoom(enabled)
+            builtInZoomControls = enabled
+            displayZoomControls = false
+        }
+        webView.reload()
     }
 
     private fun capturePreview() {
@@ -215,11 +250,23 @@ class MainActivity : AppCompatActivity() {
 
     private fun showSettings(v: View) {
         val p = PopupMenu(this, v)
-        p.menu.add("Refresh"); p.menu.add("Aktivitas")
+        p.menu.add("Refresh")
+        p.menu.add("Aktivitas")
+        val dMenu = p.menu.add("Desktop Mode")
+        dMenu.isCheckable = true
+        dMenu.isChecked = isDesktopMode
+
         p.setOnMenuItemClickListener {
             when(it.title) {
                 "Refresh" -> tabsList[activeTabIndex].reload()
-                "Aktivitas" -> { activityLayer.visibility = View.VISIBLE; showList(findViewById(R.id.list_activity_real), "activity") }
+                "Aktivitas" -> { 
+                    activityLayer.visibility = View.VISIBLE
+                    showList(findViewById(R.id.list_activity_real), "activity") 
+                }
+                "Desktop Mode" -> {
+                    isDesktopMode = !isDesktopMode
+                    toggleDesktopMode(tabsList[activeTabIndex], isDesktopMode)
+                }
             }
             true
         }; p.show()
@@ -247,4 +294,3 @@ class MainActivity : AppCompatActivity() {
         }
     }
 }
-

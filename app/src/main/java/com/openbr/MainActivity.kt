@@ -153,22 +153,34 @@ class MainActivity : AppCompatActivity() {
     private fun showTabs() {
         val container = findViewById<LinearLayout>(R.id.tab_items_container)
         container.removeAllViews()
+        
         tabsList.forEachIndexed { i, wv ->
+            // Pastikan layout name-nya: item_tab_card
             val card = layoutInflater.inflate(R.layout.item_tab_card, container, false)
-            card.findViewById<TextView>(R.id.tab_title).text = wv.title ?: "Tab"
-            card.findViewById<ImageView>(R.id.tab_preview).setImageBitmap(tabPreviews[i])
+            
+            val title = card.findViewById<TextView>(R.id.tab_title)
+            val img = card.findViewById<ImageView>(R.id.tab_preview)
+            val close = card.findViewById<ImageButton>(R.id.btn_close_this_tab)
+
+            title.text = wv.title ?: "Tab Baru"
+            img.setImageBitmap(tabPreviews[i])
+            
             card.setOnClickListener { switchTab(i) }
-            card.findViewById<View>(R.id.btn_close_this_tab).setOnClickListener {
+            close.setOnClickListener {
                 if (tabsList.size > 1) {
                     tabsList.removeAt(i)
+                    tabPreviews.remove(i)
                     if (activeTabIndex >= tabsList.size) activeTabIndex = tabsList.size - 1
-                    showTabs()
+                    showTabs() // Refresh list
                     switchTab(activeTabIndex)
+                } else {
+                    Toast.makeText(this, "Minimal satu tab terbuka", Toast.LENGTH_SHORT).show()
                 }
             }
             container.addView(card)
         }
     }
+    
 
     private fun showSettings(v: View) {
         val p = PopupMenu(this, v)

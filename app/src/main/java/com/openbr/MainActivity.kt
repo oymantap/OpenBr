@@ -41,16 +41,10 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         initUI()
-        
-        // RESTORE TABS DULU
         restoreTabsState()
-        
         handleIntent(intent)
         
-        // Jika tidak ada tab yang di-restore, baru bikin tab baru
-        if (tabsList.isEmpty()) {
-            createNewTab("https://www.google.com")
-        }
+        if (tabsList.isEmpty()) createNewTab("https://www.google.com")
     }
 
     private fun initUI() {
@@ -63,6 +57,16 @@ class MainActivity : AppCompatActivity() {
         progressBar = findViewById(R.id.progress_bar)
         tabCountText = findViewById(R.id.tab_count)
         urlDisplay = findViewById(R.id.url_display_fake)
+
+        // Tombol Tambah Tab di dalam Manager
+        findViewById<View>(R.id.btn_add_tab_bottom).setOnClickListener {
+            createNewTab("https://www.google.com")
+            tabLayer.visibility = View.GONE
+        }
+
+        // Hapus Log
+        findViewById<View>(R.id.btn_clear_history_all).setOnClickListener { clearLog("history", findViewById(R.id.list_history_search)) }
+        findViewById<View>(R.id.btn_clear_activity_all).setOnClickListener { clearLog("activity", findViewById(R.id.list_activity_real)) }
 
         urlInputReal.addTextChangedListener(object : TextWatcher {
             override fun afterTextChanged(s: Editable?) {
@@ -82,10 +86,11 @@ class MainActivity : AppCompatActivity() {
 
         findViewById<View>(R.id.search_container_trigger).setOnClickListener {
             searchLayer.visibility = View.VISIBLE
+            // Set URL sekarang ke inputan sebelum ngetik
+            urlInputReal.setText(tabsList[activeTabIndex].url) 
             showList(findViewById(R.id.list_history_search), "history")
             urlInputReal.requestFocus()
-            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-            imm.showSoftInput(urlInputReal, 0)
+            (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(urlInputReal, 0)
         }
 
         findViewById<ImageButton>(R.id.btn_more).setOnClickListener { showSettings(it) }
@@ -114,7 +119,6 @@ class MainActivity : AppCompatActivity() {
         val wv = WebView(this).apply {
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
             
-            // --- FIX WEB SHARE API ---
             addJavascriptInterface(object : Any() {
                 @JavascriptInterface
                 fun share(title: String, text: String, url: String) {
@@ -138,18 +142,14 @@ class MainActivity : AppCompatActivity() {
                 mediaPlaybackRequiresUserGesture = false
             }
 
-            // --- FIX DOWNLOAD ---
             setDownloadListener { u, _, contentDisposition, mimetype, _ ->
                 val request = DownloadManager.Request(Uri.parse(u))
                 request.setMimeType(mimetype)
-                request.addRequestHeader("User-Agent", settings.userAgentString)
-                request.setDescription("Downloading file...")
-                request.setTitle(URLUtil.guessFileName(u, contentDisposition, mimetype))
-                request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                 request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, URLUtil.guessFileName(u, contentDisposition, mimetype))
+                request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                 val dm = getSystemService(DOWNLOAD_SERVICE) as DownloadManager
                 dm.enqueue(request)
-                Toast.makeText(applicationContext, "Downloading File...", Toast.LENGTH_LONG).show()
+                Toast.makeText(applicationContext, "Downloading...", Toast.LENGTH_SHORT).show()
             }
 
             if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
@@ -166,7 +166,9 @@ class MainActivity : AppCompatActivity() {
 
             webViewClient = object : WebViewClient() {
                 override fun onPageFinished(view: WebView?, url: String?) {
-                    urlDisplay.text = view?.title ?: url
+                    if (activeTabIndex < tabsList.size && tabsList[activeTabIndex] == view) {
+                        urlDisplay.text = view?.title ?: url
+                    }
                     saveLog("activity", "${view?.title ?: "Web"}|$url")
                 }
             }
@@ -181,6 +183,10 @@ class MainActivity : AppCompatActivity() {
         activeTabIndex = index
         webContainer.removeAllViews()
         webContainer.addView(tabsList[index])
+        
+        // SINKRONISASI URL DISPLAY DISINI
+        urlDisplay.text = tabsList[index].title ?: tabsList[index].url ?: "Cari atau ketik URL"
+        
         tabCountText.text = tabsList.size.toString()
         tabLayer.visibility = View.GONE
     }
@@ -196,12 +202,10 @@ class MainActivity : AppCompatActivity() {
     private fun showTabs() {
         val container = findViewById<LinearLayout>(R.id.tab_items_container)
         container.removeAllViews()
-        
         tabsList.forEachIndexed { i, wv ->
             val card = layoutInflater.inflate(R.layout.item_tab_card, container, false)
             card.findViewById<TextView>(R.id.tab_title).text = wv.title ?: "Tab Baru"
             card.findViewById<ImageView>(R.id.tab_preview).setImageBitmap(tabPreviews[i])
-            
             card.setOnClickListener { switchTab(i) }
             card.findViewById<View>(R.id.btn_close_this_tab).setOnClickListener {
                 if (tabsList.size > 1) {
@@ -216,7 +220,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // --- SAVE & RESTORE LOGIC ---
     private fun saveTabsState() {
         val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val urls = tabsList.map { it.url ?: "" }.filter { it.isNotEmpty() }.toSet()
@@ -231,7 +234,32 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
-        saveTabsState() // Save tab pas aplikasi ditutup
+        saveTabsState()
+    }
+
+    private fun clearLog(key: String, lv: ListView) {
+        getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(key).apply()
+        showList(lv, key)
+        Toast.makeText(this, "Berhasil dihapus", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun saveLog(key: String, value: String) {
+        val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val set = prefs.getStringSet(key, linkedSetOf()) ?: linkedSetOf()
+        val newSet = LinkedHashSet<String>(set)
+        newSet.add(value)
+        prefs.edit().putStringSet(key, newSet).apply()
+    }
+
+    private fun showList(lv: ListView, key: String) {
+        val data = getSharedPreferences(PREFS, Context.MODE_PRIVATE).getStringSet(key, setOf())?.toList()?.reversed() ?: listOf()
+        lv.adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, data.map { it.split("|")[0] })
+        lv.setOnItemClickListener { _, _, i, _ ->
+            val u = if (data[i].contains("|")) data[i].split("|")[1] else "https://google.com/search?q=${data[i]}"
+            tabsList[activeTabIndex].loadUrl(u)
+            searchLayer.visibility = View.GONE
+            activityLayer.visibility = View.GONE
+        }
     }
 
     private fun showSettings(v: View) {
@@ -257,25 +285,6 @@ class MainActivity : AppCompatActivity() {
         p.show()
     }
 
-    private fun saveLog(key: String, value: String) {
-        val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val set = prefs.getStringSet(key, linkedSetOf()) ?: linkedSetOf()
-        val newSet = LinkedHashSet<String>(set)
-        newSet.add(value)
-        prefs.edit().putStringSet(key, newSet).apply()
-    }
-
-    private fun showList(lv: ListView, key: String) {
-        val data = getSharedPreferences(PREFS, Context.MODE_PRIVATE).getStringSet(key, setOf())?.toList()?.reversed() ?: listOf()
-        lv.adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, data.map { it.split("|")[0] })
-        lv.setOnItemClickListener { _, _, i, _ ->
-            val u = if (data[i].contains("|")) data[i].split("|")[1] else "https://google.com/search?q=${data[i]}"
-            tabsList[activeTabIndex].loadUrl(u)
-            searchLayer.visibility = View.GONE
-            activityLayer.visibility = View.GONE
-        }
-    }
-
     private fun handleIntent(intent: Intent?) {
         if (intent?.action == Intent.ACTION_VIEW) intent.dataString?.let { createNewTab(it) }
     }
@@ -295,4 +304,3 @@ class MainActivity : AppCompatActivity() {
         }
     }
 }
-

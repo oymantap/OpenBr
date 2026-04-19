@@ -55,7 +55,7 @@
                         android:ellipsize="end"
                         android:singleLine="true"
                         android:text="Cari atau ketik URL"
-                        android:textColor="#FFFFFF"
+                        android:textColor="#888888"
                         android:textSize="14sp" />
                 </LinearLayout>
 
@@ -303,4 +303,4 @@
     </LinearLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
-        
+                        

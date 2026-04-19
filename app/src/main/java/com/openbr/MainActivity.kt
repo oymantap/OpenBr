@@ -118,16 +118,20 @@ class MainActivity : AppCompatActivity() {
                 loadWithOverviewMode = true
             }
 
-            // CRITICAL: FORCE DARK WEB CONTENT (TETAP AKTIF!)
+            // --- PAKSA DARK MODE (ULTIMATE) ---
             if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
                 WebSettingsCompat.setForceDark(settings, WebSettingsCompat.FORCE_DARK_ON)
+            }
+            // Ini kunci buat website putih biar dipaksa sistem jadi item
+            if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK_STRATEGY)) {
+                WebSettingsCompat.setForceDarkStrategy(settings, WebSettingsCompat.DARK_STRATEGY_USER_AGENT_DARKENING_ONLY)
             }
 
             setDownloadListener { u, _, cD, mT, _ ->
                 val request = DownloadManager.Request(Uri.parse(u))
                 request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                 request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, URLUtil.guessFileName(u, cD, mT))
-                (getSystemService(DOWNLOAD_SERVICE) as DownloadManager).enqueue(request)
+                (getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager).enqueue(request)
             }
 
             webChromeClient = object : WebChromeClient() {
@@ -174,6 +178,10 @@ class MainActivity : AppCompatActivity() {
             val card = layoutInflater.inflate(R.layout.item_tab_card, container, false)
             card.findViewById<TextView>(R.id.tab_title).text = wv.title ?: "Tab Baru"
             card.findViewById<ImageView>(R.id.tab_preview).setImageBitmap(tabPreviews[i])
+            
+            // Ripple effect di card tab
+            card.setBackgroundResource(android.R.drawable.list_selector_background)
+            
             card.setOnClickListener { switchTab(i) }
             card.findViewById<View>(R.id.btn_close_this_tab).setOnClickListener {
                 if (tabsList.size > 1) {
@@ -247,3 +255,4 @@ class MainActivity : AppCompatActivity() {
         }
     }
 }
+

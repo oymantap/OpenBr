@@ -1,10 +1,13 @@
 package com.openbr
 
 import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
+import android.graphics.Bitmap
 import android.os.Bundle
-import android.view.View
-import android.view.ViewGroup
+import android.text.Editable
+import android.text.TextWatcher
+import android.view.*
 import android.view.inputmethod.InputMethodManager
 import android.webkit.*
 import android.widget.*
@@ -17,72 +20,100 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var webContainer: FrameLayout
     private lateinit var searchLayer: View
+    private lateinit var activityLayer: View
     private lateinit var tabLayer: View
     private lateinit var urlInputReal: EditText
+    private lateinit var btnClearSearch: ImageButton
+    private lateinit var progressBar: ProgressBar
     private lateinit var tabCountText: TextView
     private lateinit var urlDisplay: TextView
-    private lateinit var progressBar: ProgressBar
 
     private val tabsList = mutableListOf<WebView>()
+    private val tabPreviews = mutableMapOf<Int, Bitmap?>()
     private var activeTabIndex = 0
+    private val PREFS = "OpenBr_Official_V3"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        initUI()
+        handleIntent(intent)
+        if (tabsList.isEmpty()) createNewTab("https://www.google.com")
+    }
+
+    private fun initUI() {
         webContainer = findViewById(R.id.webview_container)
         searchLayer = findViewById(R.id.search_focus_layer)
+        activityLayer = findViewById(R.id.activity_layer)
         tabLayer = findViewById(R.id.tab_layer)
         urlInputReal = findViewById(R.id.url_input_real)
+        btnClearSearch = findViewById(R.id.btn_clear_search)
+        progressBar = findViewById(R.id.progress_bar)
         tabCountText = findViewById(R.id.tab_count)
         urlDisplay = findViewById(R.id.url_display_fake)
-        progressBar = findViewById(R.id.progress_bar)
 
-        // Init tombol-tombol
-        findViewById<View>(R.id.btn_home).setOnClickListener { 
-            if (tabsList.isNotEmpty()) tabsList[activeTabIndex].loadUrl("https://www.google.com")
-        }
+        // Tombol X di input search: cuma muncul kalo ada teks
+        urlInputReal.addTextChangedListener(object : TextWatcher {
+            override fun afterTextChanged(s: Editable?) {
+                btnClearSearch.visibility = if (s.isNullOrEmpty()) View.GONE else View.VISIBLE
+            }
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        })
+        btnClearSearch.setOnClickListener { urlInputReal.text.clear() }
+
+        findViewById<View>(R.id.btn_home).setOnClickListener { tabsList[activeTabIndex].loadUrl("https://www.google.com") }
         findViewById<View>(R.id.btn_tabs).setOnClickListener {
+            capturePreview()
             tabLayer.visibility = View.VISIBLE
-            updateTabList()
+            showTabs()
         }
-        findViewById<View>(R.id.btn_add_tab).setOnClickListener { createNewTab("https://www.google.com") }
-        findViewById<View>(R.id.btn_close_tab_layer).setOnClickListener { tabLayer.visibility = View.GONE }
-        findViewById<View>(R.id.btn_back_search).setOnClickListener { searchLayer.visibility = View.GONE }
+
         findViewById<View>(R.id.search_container_trigger).setOnClickListener {
             searchLayer.visibility = View.VISIBLE
+            showList(findViewById(R.id.list_history_search), "history")
             urlInputReal.requestFocus()
-            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-            imm.showSoftInput(urlInputReal, 0)
+            (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(urlInputReal, 0)
         }
+
+        findViewById<ImageButton>(R.id.btn_more).setOnClickListener { showSettings(it) }
+        findViewById<View>(R.id.btn_close_tab_layer).setOnClickListener { tabLayer.visibility = View.GONE }
+        findViewById<View>(R.id.btn_close_activity).setOnClickListener { activityLayer.visibility = View.GONE }
+        findViewById<View>(R.id.btn_back_search).setOnClickListener { searchLayer.visibility = View.GONE }
 
         urlInputReal.setOnEditorActionListener { v, _, _ ->
             val query = v.text.toString().trim()
-            if (query.isNotEmpty() && tabsList.isNotEmpty()) {
-                val url = if (query.contains(".") && !query.contains(" ")) "https://$query" else "https://www.google.com/search?q=$query"
+            if (query.isNotEmpty()) {
+                val url = when {
+                    query.startsWith("http") || query.startsWith("file://") || query.contains("localhost") -> query
+                    query.contains(".") && !query.contains(" ") -> "https://$query"
+                    else -> "https://www.google.com/search?q=$query"
+                }
+                saveLog("history", query)
                 tabsList[activeTabIndex].loadUrl(url)
                 searchLayer.visibility = View.GONE
-                val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-                imm.hideSoftInputFromWindow(v.windowToken, 0)
+                (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(v.windowToken, 0)
             }
             true
         }
-
-        findViewById<View>(R.id.btn_more).setOnClickListener { showSettingsMenu(it) }
-
-        createNewTab("https://www.google.com")
     }
 
     private fun createNewTab(url: String) {
         val wv = WebView(this).apply {
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-            settings.javaScriptEnabled = true
-            settings.domStorageEnabled = true
-            
-            // Fix Dark Mode Website
+            settings.apply {
+                javaScriptEnabled = true
+                domStorageEnabled = true
+                allowFileAccess = true
+                allowContentAccess = true
+                mediaPlaybackRequiresUserGesture = false // Biar video/musik gak macet di background
+            }
+
+            // DARK MODE TOTAL
             if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
-                val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-                WebSettingsCompat.setForceDark(settings, if (isDark) WebSettingsCompat.FORCE_DARK_ON else WebSettingsCompat.FORCE_DARK_OFF)
+                val isNight = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+                WebSettingsCompat.setForceDark(settings, if (isNight) WebSettingsCompat.FORCE_DARK_ON else WebSettingsCompat.FORCE_DARK_OFF)
             }
 
             webChromeClient = object : WebChromeClient() {
@@ -94,6 +125,7 @@ class MainActivity : AppCompatActivity() {
             webViewClient = object : WebViewClient() {
                 override fun onPageFinished(view: WebView?, url: String?) {
                     urlDisplay.text = view?.title ?: url
+                    saveLog("activity", "${view?.title ?: "Web"}|$url")
                 }
             }
         }
@@ -103,7 +135,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun switchTab(index: Int) {
-        if (index !in tabsList.indices) return
         activeTabIndex = index
         webContainer.removeAllViews()
         webContainer.addView(tabsList[index])
@@ -111,47 +142,94 @@ class MainActivity : AppCompatActivity() {
         tabLayer.visibility = View.GONE
     }
 
-    private fun updateTabList() {
-        val listView = findViewById<ListView>(R.id.list_tabs_preview)
-        val titles = tabsList.mapIndexed { i, wv -> "${i+1}. ${wv.title ?: "Tab Baru"}" }
-        listView.adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, titles)
-        listView.setOnItemClickListener { _, _, pos, _ -> switchTab(pos) }
-        listView.setOnItemLongClickListener { _, _, pos, _ ->
-            if (tabsList.size > 1) {
-                tabsList.removeAt(pos)
-                if (activeTabIndex >= tabsList.size) activeTabIndex = tabsList.size - 1
-                switchTab(activeTabIndex)
-                updateTabList()
-            }
-            true
+    private fun capturePreview() {
+        if (webContainer.width > 0) {
+            val bitmap = Bitmap.createBitmap(webContainer.width, webContainer.height, Bitmap.Config.ARGB_8888)
+            webContainer.draw(android.graphics.Canvas(bitmap))
+            tabPreviews[activeTabIndex] = bitmap
         }
     }
 
-    private fun showSettingsMenu(v: View) {
-        val popup = PopupMenu(this, v)
-        popup.menu.add("Refresh")
-        popup.menu.add("Dark/Light Mode")
-        popup.setOnMenuItemClickListener {
-            when (it.title) {
+    private fun showTabs() {
+        val container = findViewById<LinearLayout>(R.id.tab_items_container)
+        container.removeAllViews()
+        tabsList.forEachIndexed { i, wv ->
+            val card = layoutInflater.inflate(R.layout.item_tab_card, container, false)
+            card.findViewById<TextView>(R.id.tab_title).text = wv.title ?: "Tab"
+            card.findViewById<ImageView>(R.id.tab_preview).setImageBitmap(tabPreviews[i])
+            card.setOnClickListener { switchTab(i) }
+            card.findViewById<View>(R.id.btn_close_this_tab).setOnClickListener {
+                if (tabsList.size > 1) {
+                    tabsList.removeAt(i)
+                    if (activeTabIndex >= tabsList.size) activeTabIndex = tabsList.size - 1
+                    showTabs()
+                    switchTab(activeTabIndex)
+                }
+            }
+            container.addView(card)
+        }
+    }
+
+    private fun showSettings(v: View) {
+        val p = PopupMenu(this, v)
+        p.menu.add("Refresh")
+        p.menu.add("Aktivitas")
+        p.menu.add("Tambah Tab")
+        p.menu.add("Mode Gelap/Terang")
+        p.setOnMenuItemClickListener {
+            when(it.title) {
                 "Refresh" -> tabsList[activeTabIndex].reload()
-                "Dark/Light Mode" -> {
-                    val mode = if (AppCompatDelegate.getDefaultNightMode() == AppCompatDelegate.MODE_NIGHT_YES) 
+                "Aktivitas" -> {
+                    activityLayer.visibility = View.VISIBLE
+                    showList(findViewById(R.id.list_activity_real), "activity")
+                }
+                "Tambah Tab" -> createNewTab("https://www.google.com")
+                "Mode Gelap/Terang" -> {
+                    val mode = if (AppCompatDelegate.getDefaultNightMode() == AppCompatDelegate.MODE_NIGHT_YES)
                         AppCompatDelegate.MODE_NIGHT_NO else AppCompatDelegate.MODE_NIGHT_YES
                     AppCompatDelegate.setDefaultNightMode(mode)
                 }
             }
             true
         }
-        popup.show()
+        p.show()
+    }
+
+    private fun saveLog(key: String, value: String) {
+        val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val set = prefs.getStringSet(key, linkedSetOf()) ?: linkedSetOf()
+        val newSet = LinkedHashSet<String>(set)
+        newSet.add(value)
+        prefs.edit().putStringSet(key, newSet).apply()
+    }
+
+    private fun showList(lv: ListView, key: String) {
+        val data = getSharedPreferences(PREFS, Context.MODE_PRIVATE).getStringSet(key, setOf())?.toList()?.reversed() ?: listOf()
+        lv.adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, data.map { it.split("|")[0] })
+        lv.setOnItemClickListener { _, _, i, _ ->
+            val u = if (data[i].contains("|")) data[i].split("|")[1] else "https://google.com/search?q=${data[i]}"
+            tabsList[activeTabIndex].loadUrl(u)
+            searchLayer.visibility = View.GONE
+            activityLayer.visibility = View.GONE
+        }
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        if (intent?.action == Intent.ACTION_VIEW) intent.dataString?.let { createNewTab(it) }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
     }
 
     override fun onBackPressed() {
         when {
-            tabLayer.visibility == View.VISIBLE -> tabLayer.visibility = View.GONE
             searchLayer.visibility == View.VISIBLE -> searchLayer.visibility = View.GONE
-            tabsList.isNotEmpty() && tabsList[activeTabIndex].canGoBack() -> tabsList[activeTabIndex].goBack()
+            tabLayer.visibility == View.VISIBLE -> tabLayer.visibility = View.GONE
+            activityLayer.visibility == View.VISIBLE -> activityLayer.visibility = View.GONE
+            tabsList[activeTabIndex].canGoBack() -> tabsList[activeTabIndex].goBack()
             else -> super.onBackPressed()
         }
     }
 }
-

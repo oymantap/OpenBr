@@ -38,17 +38,12 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        
         initUI()
         restoreTabsState()
-        
-        if (tabsList.isEmpty()) {
-            createNewTab("https://www.google.com")
-        }
+        if (tabsList.isEmpty()) createNewTab("https://www.google.com")
     }
 
     private fun initUI() {
-        // Inisialisasi semua View
         webContainer = findViewById(R.id.webview_container)
         searchLayer = findViewById(R.id.search_focus_layer)
         activityLayer = findViewById(R.id.activity_layer)
@@ -59,24 +54,17 @@ class MainActivity : AppCompatActivity() {
         tabCountText = findViewById(R.id.tab_count)
         urlDisplay = findViewById(R.id.url_display_fake)
 
-        // Klik untuk tambah tab baru
         findViewById<View>(R.id.btn_add_tab_bottom).setOnClickListener {
             createNewTab("https://www.google.com")
             tabLayer.visibility = View.GONE
         }
 
-        // Hapus Log History & Activity
-        findViewById<View>(R.id.btn_clear_history_all).setOnClickListener { 
-            clearLog("history", findViewById(R.id.list_history_search)) 
-        }
-        findViewById<View>(R.id.btn_clear_activity_all).setOnClickListener { 
-            clearLog("activity", findViewById(R.id.list_activity_real)) 
-        }
+        findViewById<View>(R.id.btn_clear_history_all).setOnClickListener { clearLog("history", findViewById(R.id.list_history_search)) }
+        findViewById<View>(R.id.btn_clear_activity_all).setOnClickListener { clearLog("activity", findViewById(R.id.list_activity_real)) }
 
-        // Handle input pencarian (TextWatcher)
         urlInputReal.addTextChangedListener(object : TextWatcher {
             override fun afterTextChanged(s: Editable?) { 
-                // Menggunakan variabel global btnClearSearch yang sudah di-init
+                // FIXED: Menggunakan variabel yang sudah di-init
                 btnClearSearch.visibility = if (s.isNullOrEmpty()) View.GONE else View.VISIBLE 
             }
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
@@ -84,16 +72,8 @@ class MainActivity : AppCompatActivity() {
         })
 
         btnClearSearch.setOnClickListener { urlInputReal.text.clear() }
-        
-        findViewById<View>(R.id.btn_home).setOnClickListener { 
-            tabsList[activeTabIndex].loadUrl("https://www.google.com") 
-        }
-        
-        findViewById<View>(R.id.btn_tabs).setOnClickListener { 
-            capturePreview()
-            tabLayer.visibility = View.VISIBLE
-            showTabs() 
-        }
+        findViewById<View>(R.id.btn_home).setOnClickListener { tabsList[activeTabIndex].loadUrl("https://www.google.com") }
+        findViewById<View>(R.id.btn_tabs).setOnClickListener { capturePreview(); tabLayer.visibility = View.VISIBLE; showTabs() }
 
         findViewById<View>(R.id.search_container_trigger).setOnClickListener {
             searchLayer.visibility = View.VISIBLE
@@ -130,18 +110,16 @@ class MainActivity : AppCompatActivity() {
     private fun createNewTab(url: String) {
         val wv = WebView(this).apply {
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-            setBackgroundColor(Color.parseColor("#121212")) // Warna gelap saat loading agar tak kedip putih
-            
+            setBackgroundColor(Color.parseColor("#121212")) 
             settings.apply {
                 javaScriptEnabled = true
                 domStorageEnabled = true
                 databaseEnabled = true
                 useWideViewPort = true
                 loadWithOverviewMode = true
-                cacheMode = WebSettings.LOAD_DEFAULT
             }
 
-            // Memaksa konten website jadi Dark Mode
+            // FORCE DARK WEB CONTENT
             if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
                 WebSettingsCompat.setForceDark(settings, WebSettingsCompat.FORCE_DARK_ON)
             }
@@ -155,14 +133,8 @@ class MainActivity : AppCompatActivity() {
 
             webViewClient = object : WebViewClient() {
                 override fun onPageFinished(view: WebView?, url: String?) {
-                    if (tabsList.indexOf(view) == activeTabIndex) {
-                        urlDisplay.text = view?.title ?: url
-                    }
+                    if (tabsList.indexOf(view) == activeTabIndex) urlDisplay.text = view?.title ?: url
                     saveLog("activity", "${view?.title ?: "Web"}|$url")
-                }
-                
-                override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                    return false
                 }
             }
         }
@@ -176,7 +148,6 @@ class MainActivity : AppCompatActivity() {
         activeTabIndex = index
         webContainer.removeAllViews()
         webContainer.addView(tabsList[index])
-        
         urlDisplay.text = tabsList[index].title ?: tabsList[index].url ?: "Cari atau ketik URL"
         tabCountText.text = tabsList.size.toString()
         tabLayer.visibility = View.GONE
@@ -185,8 +156,7 @@ class MainActivity : AppCompatActivity() {
     private fun capturePreview() {
         if (webContainer.width > 0 && webContainer.height > 0) {
             val bitmap = Bitmap.createBitmap(webContainer.width, webContainer.height, Bitmap.Config.ARGB_8888)
-            val canvas = android.graphics.Canvas(bitmap)
-            webContainer.draw(canvas)
+            webContainer.draw(android.graphics.Canvas(bitmap))
             tabPreviews[activeTabIndex] = bitmap
         }
     }
@@ -195,20 +165,16 @@ class MainActivity : AppCompatActivity() {
         val container = findViewById<LinearLayout>(R.id.tab_items_container)
         container.removeAllViews()
         tabsList.forEachIndexed { i, wv ->
-            // Pastikan Anda memiliki layout item_tab_card.xml
             val card = layoutInflater.inflate(R.layout.item_tab_card, container, false)
             card.findViewById<TextView>(R.id.tab_title).text = wv.title ?: "Tab Baru"
-            val imgPreview = card.findViewById<ImageView>(R.id.tab_preview)
-            imgPreview.setImageBitmap(tabPreviews[i])
-            
+            card.findViewById<ImageView>(R.id.tab_preview).setImageBitmap(tabPreviews[i])
             card.setOnClickListener { switchTab(i) }
             card.findViewById<View>(R.id.btn_close_this_tab).setOnClickListener {
                 if (tabsList.size > 1) {
                     tabsList.removeAt(i)
                     tabPreviews.remove(i)
                     if (activeTabIndex >= tabsList.size) activeTabIndex = tabsList.size - 1
-                    showTabs()
-                    switchTab(activeTabIndex)
+                    showTabs(); switchTab(activeTabIndex)
                 }
             }
             container.addView(card)
@@ -218,26 +184,21 @@ class MainActivity : AppCompatActivity() {
     private fun clearLog(key: String, lv: ListView) {
         getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(key).apply()
         showList(lv, key)
-        Toast.makeText(this, "Log dihapus", Toast.LENGTH_SHORT).show()
     }
 
     private fun saveLog(key: String, value: String) {
         val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val set = prefs.getStringSet(key, linkedSetOf()) ?: linkedSetOf()
         val newSet = LinkedHashSet<String>(set)
-        if (newSet.size > 100) newSet.remove(newSet.first())
         newSet.add(value)
         prefs.edit().putStringSet(key, newSet).apply()
     }
 
     private fun showList(lv: ListView, key: String) {
-        val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val data = prefs.getStringSet(key, setOf())?.toList()?.reversed() ?: listOf()
-        
+        val data = getSharedPreferences(PREFS, Context.MODE_PRIVATE).getStringSet(key, setOf())?.toList()?.reversed() ?: listOf()
         lv.adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, data.map { it.split("|")[0] })
         lv.setOnItemClickListener { _, _, i, _ ->
-            val entry = data[i]
-            val u = if (entry.contains("|")) entry.split("|")[1] else "https://google.com/search?q=$entry"
+            val u = if (data[i].contains("|")) data[i].split("|")[1] else "https://google.com/search?q=${data[i]}"
             tabsList[activeTabIndex].loadUrl(u)
             searchLayer.visibility = View.GONE
             activityLayer.visibility = View.GONE
@@ -251,14 +212,10 @@ class MainActivity : AppCompatActivity() {
         p.setOnMenuItemClickListener {
             when(it.title) {
                 "Refresh" -> tabsList[activeTabIndex].reload()
-                "Aktivitas" -> { 
-                    activityLayer.visibility = View.VISIBLE
-                    showList(findViewById(R.id.list_activity_real), "activity") 
-                }
+                "Aktivitas" -> { activityLayer.visibility = View.VISIBLE; showList(findViewById(R.id.list_activity_real), "activity") }
             }
             true
-        }
-        p.show()
+        }; p.show()
     }
 
     private fun saveTabsState() {
@@ -271,18 +228,16 @@ class MainActivity : AppCompatActivity() {
         urls?.forEach { createNewTab(it) }
     }
 
-    override fun onStop() { 
-        super.onStop()
-        saveTabsState() 
-    }
+    override fun onStop() { super.onStop(); saveTabsState() }
     
     override fun onBackPressed() {
         when {
             searchLayer.visibility == View.VISIBLE -> searchLayer.visibility = View.GONE
             tabLayer.visibility == View.VISIBLE -> tabLayer.visibility = View.GONE
             activityLayer.visibility == View.VISIBLE -> activityLayer.visibility = View.GONE
-            tabsList[activeTabIndex].canGoBack() -> tabsList[activeTabIndex].goBack()
+            tabsList.size > 0 && tabsList[activeTabIndex].canGoBack() -> tabsList[activeTabIndex].goBack()
             else -> super.onBackPressed()
         }
     }
 }
+
